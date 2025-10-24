@@ -91,10 +91,11 @@ auto_start_dependencies() {
     # 检查 univers-developer
     if ! tmux has-session -t "univers-developer" 2>/dev/null; then
         log_info "启动 univers-developer..."
-        if command -v univers-dev &> /dev/null; then
-            univers-dev developer start && started+=("univers-developer") || failed+=("univers-developer")
+        local developer_script="$PROJECT_ROOT/hvac-workspace/.claude/skills/univers-dev/scripts/tmux-developer.sh"
+        if [ -f "$developer_script" ]; then
+            "$developer_script" start && started+=("univers-developer") || failed+=("univers-developer")
         else
-            log_warning "univers-dev 命令未找到，跳过 univers-developer"
+            log_warning "univers-developer 脚本未找到，跳过"
             failed+=("univers-developer")
         fi
     fi
@@ -135,10 +136,11 @@ auto_start_dependencies() {
     # 检查 univers-operator
     if ! tmux has-session -t "univers-operator" 2>/dev/null; then
         log_info "启动 univers-operator..."
-        if command -v univers-ops &> /dev/null; then
-            univers-ops operator start && started+=("univers-operator") || failed+=("univers-operator")
+        local operator_script="$PROJECT_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/univers-ops"
+        if [ -f "$operator_script" ]; then
+            "$operator_script" operator start && started+=("univers-operator") || failed+=("univers-operator")
         else
-            log_warning "univers-ops 命令未找到，跳过 univers-operator"
+            log_warning "univers-ops 脚本未找到，跳过 univers-operator"
             failed+=("univers-operator")
         fi
     fi
