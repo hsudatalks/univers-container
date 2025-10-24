@@ -222,28 +222,6 @@ start_session() {
     tmux set-option -t "$SESSION_NAME" mouse on
     tmux set-option -t "$SESSION_NAME" history-limit 50000
 
-    # 加载状态栏配置
-    local statusbar_config="$SKILL_DIR/configs/desktop-view-statusbar.conf"
-    if [ -f "$statusbar_config" ]; then
-        while IFS= read -r line || [ -n "$line" ]; do
-            # Skip comments and empty lines
-            [[ "$line" =~ ^[[:space:]]*# ]] && continue
-            [[ -z "$line" ]] && continue
-
-            # Apply the command to the session
-            # Replace 'set-option' with 'set-option -t $SESSION_NAME'
-            # Replace 'setw' with 'set-window-option -t $SESSION_NAME'
-            if [[ "$line" =~ ^set-option ]]; then
-                eval "tmux set-option -t $SESSION_NAME ${line#set-option }" 2>/dev/null || true
-            elif [[ "$line" =~ ^setw ]]; then
-                eval "tmux set-window-option -t $SESSION_NAME ${line#setw }" 2>/dev/null || true
-            fi
-        done < "$statusbar_config"
-        log_info "已加载状态栏配置: desktop-view-statusbar.conf"
-    else
-        log_warning "状态栏配置文件不存在: $statusbar_config"
-    fi
-
     # 设置快捷键：Alt+数字 直接切换窗口
     tmux bind-key -n M-1 select-window -t "$SESSION_NAME:1"
     tmux bind-key -n M-2 select-window -t "$SESSION_NAME:2"
@@ -314,6 +292,37 @@ start_session() {
 
     tmux new-window -t "$SESSION_NAME" -n "manager" -c "$PROJECT_ROOT"
     tmux send-keys -t "$SESSION_NAME:manager" "unset TMUX && while true; do tmux attach-session -t univers-manager 2>/dev/null || sleep 5; done" Enter
+
+    # ========================================
+    # 加载状态栏配置（所有窗口创建完成后）
+    # ========================================
+    log_info "应用状态栏配置到所有窗口..."
+
+    local statusbar_config="$SKILL_DIR/configs/desktop-view-statusbar.conf"
+    if [ -f "$statusbar_config" ]; then
+        # 对每个窗口应用配置
+        for window in workbench operation manager; do
+            while IFS= read -r line || [ -n "$line" ]; do
+                # Skip comments and empty lines
+                [[ "$line" =~ ^[[:space:]]*# ]] && continue
+                [[ -z "$line" ]] && continue
+
+                # Apply the command to each window
+                if [[ "$line" =~ ^set-option ]]; then
+                    # Session-level options only need to be set once
+                    if [ "$window" = "workbench" ]; then
+                        eval "tmux set-option -t $SESSION_NAME ${line#set-option }" 2>/dev/null || true
+                    fi
+                elif [[ "$line" =~ ^setw ]]; then
+                    # Window-level options need to be set for each window
+                    eval "tmux set-window-option -t $SESSION_NAME:$window ${line#setw }" 2>/dev/null || true
+                fi
+            done < "$statusbar_config"
+        done
+        log_info "已加载状态栏配置: desktop-view-statusbar.conf"
+    else
+        log_warning "状态栏配置文件不存在: $statusbar_config"
+    fi
 
     # 选择 workbench 窗口
     tmux select-window -t "$SESSION_NAME:workbench"
