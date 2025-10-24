@@ -103,10 +103,11 @@ auto_start_dependencies() {
     # 检查 univers-server
     if ! tmux has-session -t "univers-server" 2>/dev/null; then
         log_info "启动 univers-server..."
-        if command -v univers-dev &> /dev/null; then
-            univers-dev server start socket && started+=("univers-server") || failed+=("univers-server")
+        local server_script="$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-server.sh"
+        if [ -f "$server_script" ]; then
+            "$server_script" start socket && started+=("univers-server") || failed+=("univers-server")
         else
-            log_warning "univers-dev 命令未找到，跳过 univers-server"
+            log_warning "univers-server 脚本未找到，跳过"
             failed+=("univers-server")
         fi
     fi
@@ -114,10 +115,11 @@ auto_start_dependencies() {
     # 检查 univers-ui
     if ! tmux has-session -t "univers-ui" 2>/dev/null; then
         log_info "启动 univers-ui..."
-        if command -v univers-dev &> /dev/null; then
-            univers-dev ui start && started+=("univers-ui") || failed+=("univers-ui")
+        local ui_script="$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-ui.sh"
+        if [ -f "$ui_script" ]; then
+            "$ui_script" start && started+=("univers-ui") || failed+=("univers-ui")
         else
-            log_warning "univers-dev 命令未找到，跳过 univers-ui"
+            log_warning "univers-ui 脚本未找到，跳过"
             failed+=("univers-ui")
         fi
     fi
@@ -125,10 +127,11 @@ auto_start_dependencies() {
     # 检查 univers-web
     if ! tmux has-session -t "univers-web" 2>/dev/null; then
         log_info "启动 univers-web..."
-        if command -v univers-dev &> /dev/null; then
-            univers-dev web start && started+=("univers-web") || failed+=("univers-web")
+        local web_script="$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-web.sh"
+        if [ -f "$web_script" ]; then
+            "$web_script" start && started+=("univers-web") || failed+=("univers-web")
         else
-            log_warning "univers-dev 命令未找到，跳过 univers-web"
+            log_warning "univers-web 脚本未找到，跳过"
             failed+=("univers-web")
         fi
     fi
