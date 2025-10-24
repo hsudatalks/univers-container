@@ -356,6 +356,154 @@ tmux pipe-pane -t "build-${BUILD_ID}" 'cat > build.log'
 tmux kill-session -t "build-${BUILD_ID}"
 ```
 
+## Managed Sessions
+
+This skill provides pre-configured session management scripts for common workflows.
+
+### Container Manager Session
+
+**univers-manager** - Container management terminal
+
+```bash
+# Start manager session
+tmux-manager start
+
+# Attach to manager
+tmux-manager attach
+
+# Check status
+tmux-manager status
+
+# Stop manager
+tmux-manager stop
+```
+
+**Features:**
+- Opens in univers-container directory
+- Shows available container management commands
+- Persistent session for Claude Code and skill management
+- 50,000 line history buffer
+
+### Desktop View Session
+
+**univers-desktop-view** - Split-pane aggregated view (for desktop monitors)
+
+```bash
+# Start desktop view
+tmux-desktop-view start
+
+# Attach to view
+tmux-desktop-view attach
+
+# Check status
+tmux-desktop-view status
+```
+
+**Layout:**
+
+Window 1: **workbench** (4 panes)
+```
+┌──────────────┬──────────────┐
+│              │  server      │
+│  developer   ├──────────────┤
+│              │  ui          │
+│              ├──────────────┤
+│              │  web         │
+└──────────────┴──────────────┘
+```
+
+Window 2: **operation** (1 pane)
+- univers-operator
+
+Window 3: **manager** (1 pane)
+- univers-manager
+
+**Dependencies:**
+- univers-developer (hvac-workspace)
+- univers-server (hvac-workspace)
+- univers-ui (hvac-workspace)
+- univers-web (hvac-workspace)
+- univers-operator (hvac-operation)
+- univers-manager (univers-container)
+
+### Mobile View Session
+
+**univers-mobile-view** - Multi-window view (for smaller screens/mobile workflows)
+
+```bash
+# Start mobile view
+tmux-mobile-view start
+
+# Attach to view
+tmux-mobile-view attach
+
+# Check status
+tmux-mobile-view status
+```
+
+**Layout:**
+
+Window 1: **dev** - univers-developer
+
+Window 2: **service** (3 panes, vertical stack)
+```
+┌──────────────┐
+│  server      │
+├──────────────┤
+│  ui          │
+├──────────────┤
+│  web         │
+└──────────────┘
+```
+
+Window 3: **ops** - univers-operator
+
+Window 4: **manager** - univers-manager
+
+**Navigation:**
+- `Ctrl+B 1-4` to switch between windows
+- `Ctrl+B ←↑→↓` to navigate panes in service window
+
+**Dependencies:** Same as desktop view
+
+### Installation
+
+Install all tmux-manage commands globally:
+
+```bash
+cd .claude/skills/tmux-manage
+./install.sh
+```
+
+This creates global commands:
+- `tmux-manager` - Manager session control
+- `tmux-desktop-view` - Desktop view control
+- `tmux-mobile-view` - Mobile view control
+
+### Complete Workflow Example
+
+```bash
+# 1. Start all base sessions
+univers-dev developer start      # Developer terminal
+univers-dev server start socket  # Backend server
+univers-dev ui start             # UI development
+univers-dev web start            # Web development
+univers-ops operator start       # Operations console
+tmux-manager start               # Container manager
+
+# 2. Start aggregated view
+tmux-desktop-view start          # Or tmux-mobile-view start
+
+# 3. Attach to view
+tmux-desktop-view attach
+
+# 4. Work with unified interface
+# - All services visible in one view
+# - Switch windows/panes as needed
+# - Detach without stopping services (Ctrl+B D)
+```
+
 ## Version History
 
+- v1.1 (2025-10-24): Add manager, desktop-view, mobile-view sessions
 - v1.0 (2025-10-24): Initial tmux management skill
