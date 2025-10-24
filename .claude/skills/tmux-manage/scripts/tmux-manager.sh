@@ -170,6 +170,56 @@ stop_session() {
     log_success "Container Manager 会话已停止"
 }
 
+# 停止所有会话
+stop_all_sessions() {
+    check_tmux
+
+    log_warning "即将停止所有 Univers 相关会话..."
+    echo ""
+
+    # 定义所有会话
+    local sessions=(
+        "univers-desktop-view"
+        "univers-mobile-view"
+        "univers-manager"
+        "univers-developer"
+        "univers-server"
+        "univers-ui"
+        "univers-web"
+        "univers-operator"
+    )
+
+    local stopped=()
+    local not_found=()
+
+    # 遍历并停止每个会话
+    for session in "${sessions[@]}"; do
+        if tmux has-session -t "$session" 2>/dev/null; then
+            log_info "停止 $session..."
+            tmux kill-session -t "$session" 2>/dev/null || true
+            stopped+=("$session")
+        else
+            not_found+=("$session")
+        fi
+    done
+
+    echo ""
+    if [ ${#stopped[@]} -gt 0 ]; then
+        log_success "已停止 ${#stopped[@]} 个会话:"
+        for session in "${stopped[@]}"; do
+            echo "  ✓ $session"
+        done
+    fi
+
+    if [ ${#not_found[@]} -gt 0 ]; then
+        echo ""
+        log_info "${#not_found[@]} 个会话未运行（已跳过）"
+    fi
+
+    echo ""
+    log_success "所有会话已停止！"
+}
+
 # 连接到会话
 attach_session() {
     check_tmux
@@ -259,7 +309,8 @@ show_help() {
 命令:
   start [view]    启动 Container Manager 会话并自动启动所有依赖
                   view: both (默认), desktop, mobile, none
-  stop            停止会话
+  stop            停止 manager 会话
+  stop-all        停止所有 Univers 相关会话（推荐）
   restart [view]  重启会话
   attach          连接到会话
   logs [lines]    显示最近的输出 (默认50行)
@@ -288,8 +339,11 @@ show_help() {
   # 查看状态
   $0 status
 
-  # 停止会话
+  # 停止 manager 会话
   $0 stop
+
+  # 停止所有会话
+  $0 stop-all
 
 自动启动功能:
   使用 'start' 命令时，会自动:
@@ -328,6 +382,9 @@ main() {
             ;;
         stop)
             stop_session
+            ;;
+        stop-all)
+            stop_all_sessions
             ;;
         restart)
             local view_type="${1:-both}"
