@@ -210,6 +210,10 @@ start_session() {
     tmux bind-key -n M-2 select-window -t "$SESSION_NAME:2"
     tmux bind-key -n M-3 select-window -t "$SESSION_NAME:3"
 
+    # 设置快捷键：Ctrl+Y/U 切换窗口
+    tmux bind-key -n C-y previous-window
+    tmux bind-key -n C-u next-window
+
     # 执行分割操作
     # 水平分割 (左右) - 左边 developer, 右边 server/ui/web
     tmux split-window -h -t "$SESSION_NAME:workbench"
@@ -413,7 +417,8 @@ show_help() {
   $0 status
 
 Tmux快捷键:
-  Alt+1, Alt+2, Alt+3  快速切换窗口（推荐）
+  Ctrl+Y, Ctrl+U       上一个/下一个窗口（推荐）
+  Alt+1, Alt+2, Alt+3  快速切换到指定窗口
   Ctrl+B D             退出会话
   Ctrl+B 1-3           切换窗口
   Ctrl+B ←↑→↓          在pane间导航
