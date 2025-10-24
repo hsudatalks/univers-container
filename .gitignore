@@ -1,5 +1,6 @@
-# Claude Code
-.claude/
+# Claude Code (exclude personal configs, but keep project skills)
+.claude/*
+!.claude/skills/
 .claude_code/
 
 # Logs
