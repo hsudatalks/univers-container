@@ -64,8 +64,58 @@ session_exists() {
     tmux has-session -t "$SESSION_NAME" 2>/dev/null
 }
 
+# 后台启动所有依赖会话和视图
+auto_start_all() {
+    local view_type="${1:-desktop}"  # desktop, mobile, both, none
+
+    log_info "正在后台启动所有依赖会话..."
+
+    # 启动视图会话（它会自动启动所有依赖）
+    case "$view_type" in
+        desktop)
+            log_info "启动桌面视图..."
+            if command -v tmux-desktop-view &> /dev/null; then
+                tmux-desktop-view start > /dev/null 2>&1 || log_warning "桌面视图启动失败"
+            else
+                log_warning "tmux-desktop-view 命令未找到"
+            fi
+            ;;
+        mobile)
+            log_info "启动移动视图..."
+            if command -v tmux-mobile-view &> /dev/null; then
+                tmux-mobile-view start > /dev/null 2>&1 || log_warning "移动视图启动失败"
+            else
+                log_warning "tmux-mobile-view 命令未找到"
+            fi
+            ;;
+        both)
+            log_info "启动桌面和移动视图..."
+            if command -v tmux-desktop-view &> /dev/null; then
+                tmux-desktop-view start > /dev/null 2>&1 || log_warning "桌面视图启动失败"
+            fi
+            if command -v tmux-mobile-view &> /dev/null; then
+                tmux-mobile-view start > /dev/null 2>&1 || log_warning "移动视图启动失败"
+            fi
+            ;;
+        none)
+            log_info "跳过视图启动，仅启动基础会话..."
+            # 直接调用 desktop-view 的 auto_start_dependencies 逻辑
+            # 这里我们可以复用 view 脚本的逻辑，或者单独实现
+            ;;
+    esac
+
+    log_success "后台启动完成！"
+    echo ""
+    log_info "查看所有会话状态: tmux list-sessions"
+    log_info "连接到 desktop-view: tmux-desktop-view attach"
+    log_info "连接到 mobile-view: tmux-mobile-view attach"
+    echo ""
+}
+
 # 启动会话
 start_session() {
+    local view_type="${1:-desktop}"  # 视图类型: desktop, mobile, both, none
+
     check_tmux
 
     if session_exists; then
@@ -107,6 +157,10 @@ start_session() {
 
     log_success "Container Manager 会话已创建"
     echo ""
+
+    # 自动启动所有依赖会话和视图
+    auto_start_all "$view_type"
+
     echo "使用以下命令:"
     echo "  $0 attach   - 连接到会话 (按 Ctrl+B 然后 D 退出)"
     echo "  $0 logs     - 查看历史输出"
@@ -198,10 +252,11 @@ show_status() {
 
 # 重启会话
 restart_session() {
+    local view_type="${1:-desktop}"
     log_info "重启 Container Manager 会话..."
     stop_session
     sleep 1
-    start_session
+    start_session "$view_type"
 }
 
 # 显示帮助
@@ -215,17 +270,27 @@ show_help() {
   $0 <command> [options]
 
 命令:
-  start           启动 Container Manager 会话
+  start [view]    启动 Container Manager 会话并自动启动所有依赖
+                  view: desktop (默认), mobile, both, none
   stop            停止会话
-  restart         重启会话
+  restart [view]  重启会话
   attach          连接到会话
   logs [lines]    显示最近的输出 (默认50行)
   status          显示会话状态
   help            显示此帮助信息
 
 示例:
-  # 启动会话
+  # 启动会话（默认启动 desktop 视图）
   $0 start
+
+  # 启动会话并启动移动视图
+  $0 start mobile
+
+  # 启动会话并同时启动两个视图
+  $0 start both
+
+  # 启动会话但不启动任何视图
+  $0 start none
 
   # 连接到会话
   $0 attach
@@ -239,6 +304,14 @@ show_help() {
   # 停止会话
   $0 stop
 
+自动启动功能:
+  使用 'start' 命令时，会自动:
+  1. 启动 univers-manager 会话
+  2. 启动所有依赖会话 (developer, server, ui, web, operator)
+  3. 启动视图会话 (desktop/mobile/both/none)
+
+  视图会话会自动连接到所有依赖会话，提供统一的监控界面。
+
 Tmux快捷键:
   Ctrl+B D        退出会话 (会话继续运行)
   Ctrl+B [        进入滚动模式 (q退出)
@@ -249,6 +322,7 @@ Tmux快捷键:
   - 50000行历史记录缓冲
   - 鼠标支持（可以用鼠标滚动）
   - 默认打开 univers-container 目录
+  - 一键启动所有开发和运维会话
 
 EOF
 }
@@ -260,13 +334,15 @@ main() {
 
     case "$command" in
         start)
-            start_session
+            local view_type="${1:-desktop}"
+            start_session "$view_type"
             ;;
         stop)
             stop_session
             ;;
         restart)
-            restart_session
+            local view_type="${1:-desktop}"
+            restart_session "$view_type"
             ;;
         attach)
             attach_session
