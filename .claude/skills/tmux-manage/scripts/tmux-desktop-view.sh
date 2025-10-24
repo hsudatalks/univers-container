@@ -205,6 +205,11 @@ start_session() {
     tmux set-option -t "$SESSION_NAME" mouse on
     tmux set-option -t "$SESSION_NAME" history-limit 50000
 
+    # 设置快捷键：Alt+数字 直接切换窗口
+    tmux bind-key -n M-1 select-window -t "$SESSION_NAME:1"
+    tmux bind-key -n M-2 select-window -t "$SESSION_NAME:2"
+    tmux bind-key -n M-3 select-window -t "$SESSION_NAME:3"
+
     # 执行分割操作
     # 水平分割 (左右) - 左边 developer, 右边 server/ui/web
     tmux split-window -h -t "$SESSION_NAME:workbench"
@@ -408,11 +413,12 @@ show_help() {
   $0 status
 
 Tmux快捷键:
-  Ctrl+B D        退出会话
-  Ctrl+B 1-3      切换窗口
-  Ctrl+B ←↑→↓     在pane间导航
-  Ctrl+B [        进入滚动模式
-  Ctrl+B ?        显示所有快捷键
+  Alt+1, Alt+2, Alt+3  快速切换窗口（推荐）
+  Ctrl+B D             退出会话
+  Ctrl+B 1-3           切换窗口
+  Ctrl+B ←↑→↓          在pane间导航
+  Ctrl+B [             进入滚动模式
+  Ctrl+B ?             显示所有快捷键
 
 EOF
 }
