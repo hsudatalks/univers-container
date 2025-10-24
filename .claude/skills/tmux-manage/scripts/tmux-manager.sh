@@ -66,7 +66,7 @@ session_exists() {
 
 # 后台启动所有依赖会话和视图
 auto_start_all() {
-    local view_type="${1:-desktop}"  # desktop, mobile, both, none
+    local view_type="${1:-both}"  # desktop, mobile, both, none
 
     log_info "正在后台启动所有依赖会话..."
 
@@ -114,7 +114,7 @@ auto_start_all() {
 
 # 启动会话
 start_session() {
-    local view_type="${1:-desktop}"  # 视图类型: desktop, mobile, both, none
+    local view_type="${1:-both}"  # 视图类型: desktop, mobile, both, none
 
     check_tmux
 
@@ -252,7 +252,7 @@ show_status() {
 
 # 重启会话
 restart_session() {
-    local view_type="${1:-desktop}"
+    local view_type="${1:-both}"
     log_info "重启 Container Manager 会话..."
     stop_session
     sleep 1
@@ -271,7 +271,7 @@ show_help() {
 
 命令:
   start [view]    启动 Container Manager 会话并自动启动所有依赖
-                  view: desktop (默认), mobile, both, none
+                  view: both (默认), desktop, mobile, none
   stop            停止会话
   restart [view]  重启会话
   attach          连接到会话
@@ -280,14 +280,14 @@ show_help() {
   help            显示此帮助信息
 
 示例:
-  # 启动会话（默认启动 desktop 视图）
+  # 启动会话（默认同时启动两个视图）
   $0 start
 
-  # 启动会话并启动移动视图
-  $0 start mobile
+  # 启动会话并只启动桌面视图
+  $0 start desktop
 
-  # 启动会话并同时启动两个视图
-  $0 start both
+  # 启动会话并只启动移动视图
+  $0 start mobile
 
   # 启动会话但不启动任何视图
   $0 start none
@@ -308,9 +308,11 @@ show_help() {
   使用 'start' 命令时，会自动:
   1. 启动 univers-manager 会话
   2. 启动所有依赖会话 (developer, server, ui, web, operator)
-  3. 启动视图会话 (desktop/mobile/both/none)
+  3. 启动视图会话 (默认同时启动 desktop 和 mobile 视图)
 
   视图会话会自动连接到所有依赖会话，提供统一的监控界面。
+  - desktop-view: 3窗口分屏布局，适合大屏幕
+  - mobile-view: 4窗口切换布局，适合小屏幕
 
 Tmux快捷键:
   Ctrl+B D        退出会话 (会话继续运行)
@@ -334,14 +336,14 @@ main() {
 
     case "$command" in
         start)
-            local view_type="${1:-desktop}"
+            local view_type="${1:-both}"
             start_session "$view_type"
             ;;
         stop)
             stop_session
             ;;
         restart)
-            local view_type="${1:-desktop}"
+            local view_type="${1:-both}"
             restart_session "$view_type"
             ;;
         attach)
