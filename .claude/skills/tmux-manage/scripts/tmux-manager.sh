@@ -16,7 +16,10 @@ if [ -L "$SCRIPT_PATH" ]; then
 fi
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-CONTAINER_ROOT="/home/davidxu/repos/univers-container"
+# 动态获取 univers-container 根目录
+# SKILL_DIR = .../univers-container/.claude/skills/tmux-manage
+# 需要向上2级到 univers-container
+CONTAINER_ROOT="$(cd "$SKILL_DIR/../.." && pwd)"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -136,6 +139,28 @@ start_session() {
     tmux set-option -t "$SESSION_NAME" remain-on-exit off
     tmux set-option -t "$SESSION_NAME" mouse on
     tmux set-option -t "$SESSION_NAME" history-limit 50000
+
+    # 加载状态栏配置
+    local statusbar_config="$SKILL_DIR/configs/manager-statusbar.conf"
+    if [ -f "$statusbar_config" ]; then
+        while IFS= read -r line || [ -n "$line" ]; do
+            # Skip comments and empty lines
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "$line" ]] && continue
+
+            # Apply the command to the session
+            # Replace 'set-option' with 'set-option -t $SESSION_NAME'
+            # Replace 'setw' with 'set-window-option -t $SESSION_NAME'
+            if [[ "$line" =~ ^set-option ]]; then
+                eval "tmux set-option -t $SESSION_NAME ${line#set-option }" 2>/dev/null || true
+            elif [[ "$line" =~ ^setw ]]; then
+                eval "tmux set-window-option -t $SESSION_NAME ${line#setw }" 2>/dev/null || true
+            fi
+        done < "$statusbar_config"
+        log_info "已加载状态栏配置: manager-statusbar.conf"
+    else
+        log_warning "状态栏配置文件不存在: $statusbar_config"
+    fi
 
     # 发送欢迎信息（先清屏，然后打印欢迎信息）
     tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" 'clear' C-m

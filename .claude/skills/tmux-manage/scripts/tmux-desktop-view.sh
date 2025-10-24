@@ -15,7 +15,8 @@ if [ -L "$SCRIPT_PATH" ]; then
 fi
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-PROJECT_ROOT="/home/davidxu/repos"
+# 动态获取项目根目录（univers-container 的上级目录）
+PROJECT_ROOT="$(cd "$SKILL_DIR/../.." && pwd)"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -199,14 +200,49 @@ start_session() {
     # ========================================
     log_info "创建 Window 1: workbench (4 panes)"
 
+    # 临时清除 TMUX 环境变量，确保新 session 独立创建
+    local saved_tmux="$TMUX"
+    unset TMUX
+
     # 创建会话和第一个窗口
     tmux new-session -d -s "$SESSION_NAME" -n "workbench" -c "$PROJECT_ROOT"
+
+    # 恢复 TMUX 环境变量
+    export TMUX="$saved_tmux"
+
+    # 关键：设置 window-size 为 manual，然后强制 resize 到足够大的尺寸
+    # 这样即使有小 client attach，窗口大小也不会被自动缩小
+    # 保证能容纳完整的 4 pane 布局
+    tmux set-window-option -t "$SESSION_NAME:workbench" window-size manual
+    tmux resize-window -t "$SESSION_NAME:workbench" -x 200 -y 50
 
     # 设置基本选项
     tmux set-option -t "$SESSION_NAME" base-index 1
     tmux set-option -t "$SESSION_NAME" remain-on-exit off
     tmux set-option -t "$SESSION_NAME" mouse on
     tmux set-option -t "$SESSION_NAME" history-limit 50000
+
+    # 加载状态栏配置
+    local statusbar_config="$SKILL_DIR/configs/desktop-view-statusbar.conf"
+    if [ -f "$statusbar_config" ]; then
+        while IFS= read -r line || [ -n "$line" ]; do
+            # Skip comments and empty lines
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "$line" ]] && continue
+
+            # Apply the command to the session
+            # Replace 'set-option' with 'set-option -t $SESSION_NAME'
+            # Replace 'setw' with 'set-window-option -t $SESSION_NAME'
+            if [[ "$line" =~ ^set-option ]]; then
+                eval "tmux set-option -t $SESSION_NAME ${line#set-option }" 2>/dev/null || true
+            elif [[ "$line" =~ ^setw ]]; then
+                eval "tmux set-window-option -t $SESSION_NAME ${line#setw }" 2>/dev/null || true
+            fi
+        done < "$statusbar_config"
+        log_info "已加载状态栏配置: desktop-view-statusbar.conf"
+    else
+        log_warning "状态栏配置文件不存在: $statusbar_config"
+    fi
 
     # 设置快捷键：Alt+数字 直接切换窗口
     tmux bind-key -n M-1 select-window -t "$SESSION_NAME:1"
@@ -217,20 +253,29 @@ start_session() {
     tmux bind-key -n C-y previous-window
     tmux bind-key -n C-u next-window
 
+    # 检查实际创建的窗口大小
+    local actual_width=$(tmux list-windows -t "$SESSION_NAME:workbench" -F "#{window_width}" | head -1)
+    local actual_height=$(tmux list-windows -t "$SESSION_NAME:workbench" -F "#{window_height}" | head -1)
+
+    if [ "$actual_width" -lt 160 ] || [ "$actual_height" -lt 40 ]; then
+        log_warning "窗口大小不足 (${actual_width}x${actual_height})，可能无法创建完整的4pane布局"
+        log_info "建议：在真实终端中运行此脚本，或使用 tmux attach 后手动调整窗口大小"
+    fi
+
     # 执行分割操作
     # 水平分割 (左右) - 左边 developer, 右边 server/ui/web
-    tmux split-window -h -t "$SESSION_NAME:workbench"
+    tmux split-window -h -t "$SESSION_NAME:workbench" || log_warning "水平分割失败（窗口可能太小），继续创建..."
 
     # 右侧第一次垂直分割 - pane 2 分成上下两部分
-    tmux split-window -v -t "$SESSION_NAME:workbench.2"
+    tmux split-window -v -t "$SESSION_NAME:workbench.2" || log_warning "第一次垂直分割失败（窗口可能太小），继续创建..."
 
     # 右侧第二次垂直分割 - 再分一次
-    tmux split-window -v -t "$SESSION_NAME:workbench.3"
+    tmux split-window -v -t "$SESSION_NAME:workbench.3" || log_warning "第二次垂直分割失败（窗口可能太小），继续创建..."
 
-    # 调整 pane 大小比例（左侧占55%，右侧占45%）
+    # 调整 pane 大小比例（左右各占 50%）
     local win_width=$(tmux list-windows -t "$SESSION_NAME:workbench" -F "#{window_width}" | head -1)
-    local left_width=$((win_width * 55 / 100))
-    tmux resize-pane -t "$SESSION_NAME:workbench.1" -x "$left_width"
+    local left_width=$((win_width * 50 / 100))
+    tmux resize-pane -t "$SESSION_NAME:workbench.1" -x "$left_width" 2>/dev/null || true
 
     # 现在有4个面板：
     # pane 1: 左侧 (developer) - 占整个左半边
@@ -238,17 +283,21 @@ start_session() {
     # pane 3: 右中 (ui) - 占右半边的中间部分
     # pane 4: 右下 (web) - 占右半边的下半部
 
-    # 为每个 pane 设置标题
-    tmux select-pane -t "$SESSION_NAME:workbench.1" -T "Developer"
-    tmux select-pane -t "$SESSION_NAME:workbench.2" -T "Server"
-    tmux select-pane -t "$SESSION_NAME:workbench.3" -T "UI"
-    tmux select-pane -t "$SESSION_NAME:workbench.4" -T "Web"
+    # 为每个 pane 设置标题（只设置存在的pane）
+    tmux select-pane -t "$SESSION_NAME:workbench.1" -T "Developer" 2>/dev/null || true
+    tmux select-pane -t "$SESSION_NAME:workbench.2" -T "Server" 2>/dev/null || true
+    tmux select-pane -t "$SESSION_NAME:workbench.3" -T "UI" 2>/dev/null || true
+    tmux select-pane -t "$SESSION_NAME:workbench.4" -T "Web" 2>/dev/null || true
 
-    # 设置连接命令（自动重连）
-    tmux send-keys -t "$SESSION_NAME:workbench.1" "unset TMUX && while true; do tmux attach-session -t univers-developer 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:workbench.2" "unset TMUX && while true; do tmux attach-session -t univers-server 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:workbench.3" "unset TMUX && while true; do tmux attach-session -t univers-ui 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:workbench.4" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter
+    # 设置连接命令（自动重连，只连接存在的pane）
+    tmux send-keys -t "$SESSION_NAME:workbench.1" "unset TMUX && while true; do tmux attach-session -t univers-developer 2>/dev/null || sleep 5; done" Enter 2>/dev/null || true
+    tmux send-keys -t "$SESSION_NAME:workbench.2" "unset TMUX && while true; do tmux attach-session -t univers-server 2>/dev/null || sleep 5; done" Enter 2>/dev/null || true
+    tmux send-keys -t "$SESSION_NAME:workbench.3" "unset TMUX && while true; do tmux attach-session -t univers-ui 2>/dev/null || sleep 5; done" Enter 2>/dev/null || true
+    tmux send-keys -t "$SESSION_NAME:workbench.4" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter 2>/dev/null || true
+
+    # 布局创建完成后，将 window-size 改为 largest，允许跟随终端大小调整
+    # 这样 attach 时窗口会自动适应终端大小
+    tmux set-window-option -t "$SESSION_NAME:workbench" window-size largest
 
     # ========================================
     # Window 2: operation (1个pane)
