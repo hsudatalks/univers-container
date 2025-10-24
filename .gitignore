@@ -1,0 +1,38 @@
+# Claude Code
+.claude/
+.claude_code/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# System files
+*.swp
+*.swo
+*~
+
+# Build artifacts
+dist/
+build/
+*.pyc
+__pycache__/
+node_modules/
+
+# Container specific
+*.pid
+*.sock
