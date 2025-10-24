@@ -91,7 +91,7 @@ auto_start_dependencies() {
     # 检查 univers-developer
     if ! tmux has-session -t "univers-developer" 2>/dev/null; then
         log_info "启动 univers-developer..."
-        local developer_script="$PROJECT_ROOT/hvac-workspace/.claude/skills/univers-dev/scripts/tmux-developer.sh"
+        local developer_script="$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-developer.sh"
         if [ -f "$developer_script" ]; then
             "$developer_script" start && started+=("univers-developer") || failed+=("univers-developer")
         else
@@ -276,10 +276,10 @@ start_session() {
     log_info "使用 '$0 attach' 连接到会话"
     echo ""
     echo "依赖会话:"
-    echo "  - univers-developer (hvac-workspace)"
-    echo "  - univers-server (hvac-workspace)"
-    echo "  - univers-ui (hvac-workspace)"
-    echo "  - univers-web (hvac-workspace)"
+    echo "  - univers-developer (hvac-workbench)"
+    echo "  - univers-server (hvac-workbench)"
+    echo "  - univers-ui (hvac-workbench)"
+    echo "  - univers-web (hvac-workbench)"
     echo "  - univers-operator (hvac-operation)"
     echo "  - univers-manager (univers-container)"
 }

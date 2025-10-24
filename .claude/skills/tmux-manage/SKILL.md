@@ -360,6 +360,52 @@ tmux kill-session -t "build-${BUILD_ID}"
 
 This skill provides pre-configured session management scripts for common workflows.
 
+### System Monitor Session
+
+**univers-monitor** - System monitoring dashboard (4-pane layout)
+
+```bash
+# Start monitor session
+tmux-monitor start
+
+# Attach to monitor
+tmux-monitor attach
+
+# Check status
+tmux-monitor status
+
+# Stop monitor
+tmux-monitor stop
+```
+
+**Features:**
+- Real-time system resource monitoring
+- 4-pane split layout for comprehensive overview
+- Auto-refresh monitoring data
+- 50,000 line history buffer
+
+**Layout:**
+
+```
+┌──────────────┬──────────────┐
+│   系统资源    │   进程监控    │
+│   (htop)     │   (top CPU)   │
+├──────────────┼──────────────┤
+│   磁盘监控    │   网络监控    │
+│   (df/du)    │   (ss/ip)     │
+└──────────────┴──────────────┘
+```
+
+**Panes:**
+- **Pane 0 (Top-Left)**: System resources (htop/top)
+- **Pane 1 (Top-Right)**: Top CPU processes (watch ps)
+- **Pane 2 (Bottom-Left)**: Disk usage (watch df/du)
+- **Pane 3 (Bottom-Right)**: Network connections (watch ss/ip)
+
+**Navigation:**
+- `Ctrl+B ←↑→↓` to navigate between panes
+- `Ctrl+B Z` to zoom/unzoom current pane
+
 ### Container Manager Session
 
 **univers-manager** - Container management terminal
@@ -419,10 +465,10 @@ Window 3: **manager** (1 pane)
 - univers-manager
 
 **Dependencies:**
-- univers-developer (hvac-workspace)
-- univers-server (hvac-workspace)
-- univers-ui (hvac-workspace)
-- univers-web (hvac-workspace)
+- univers-developer (hvac-workbench)
+- univers-server (hvac-workbench)
+- univers-ui (hvac-workbench)
+- univers-web (hvac-workbench)
 - univers-operator (hvac-operation)
 - univers-manager (univers-container)
 
@@ -479,6 +525,7 @@ This creates global commands:
 - `tmux-manager` - Manager session control
 - `tmux-desktop-view` - Desktop view control
 - `tmux-mobile-view` - Mobile view control
+- `tmux-monitor` - System monitor control
 
 ### Complete Workflow Example
 
@@ -505,5 +552,6 @@ tmux-desktop-view attach
 
 ## Version History
 
+- v1.2 (2025-10-24): Add system-monitor session with 4-pane layout
 - v1.1 (2025-10-24): Add manager, desktop-view, mobile-view sessions
 - v1.0 (2025-10-24): Initial tmux management skill

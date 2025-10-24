@@ -51,6 +51,7 @@ fi
 $SUDO_CMD rm -f /usr/local/bin/tmux-manager
 $SUDO_CMD rm -f /usr/local/bin/tmux-desktop-view
 $SUDO_CMD rm -f /usr/local/bin/tmux-mobile-view
+$SUDO_CMD rm -f /usr/local/bin/tmux-monitor
 
 # Create symlinks
 $SUDO_CMD ln -s "$SCRIPT_DIR/scripts/tmux-manager.sh" /usr/local/bin/tmux-manager
@@ -61,6 +62,9 @@ echo -e "${GREEN}✅ Installed: /usr/local/bin/tmux-desktop-view${NC}"
 
 $SUDO_CMD ln -s "$SCRIPT_DIR/scripts/tmux-mobile-view.sh" /usr/local/bin/tmux-mobile-view
 echo -e "${GREEN}✅ Installed: /usr/local/bin/tmux-mobile-view${NC}"
+
+$SUDO_CMD ln -s "$SCRIPT_DIR/scripts/tmux-monitor.sh" /usr/local/bin/tmux-monitor
+echo -e "${GREEN}✅ Installed: /usr/local/bin/tmux-monitor${NC}"
 echo ""
 
 echo -e "${GREEN}✅ Installation complete!${NC}"
@@ -78,7 +82,10 @@ echo ""
 echo "3️⃣  Start mobile view (multiple windows):"
 echo "    tmux-mobile-view start"
 echo ""
-echo "4️⃣  List all sessions:"
+echo "4️⃣  Start system monitor (4-pane layout):"
+echo "    tmux-monitor start"
+echo ""
+echo "5️⃣  List all sessions:"
 echo "    tmux list-sessions"
 echo ""
 echo "======================================"
@@ -101,13 +108,19 @@ echo "  tmux-mobile-view start    Start mobile view (4 windows)"
 echo "  tmux-mobile-view attach   Attach to mobile view"
 echo "  tmux-mobile-view status   Check status"
 echo ""
+echo "System Monitor:"
+echo "  tmux-monitor start        Start system monitor (4 panes)"
+echo "  tmux-monitor attach       Attach to monitor"
+echo "  tmux-monitor status       Check status"
+echo "  tmux-monitor stop         Stop monitor"
+echo ""
 echo "======================================"
 echo "📖 Dependencies"
 echo "======================================"
 echo ""
 echo "View sessions depend on these services:"
 echo ""
-echo "From hvac-workspace (univers-dev):"
+echo "From hvac-workbench (univers-dev):"
 echo "  - univers-developer (developer terminal)"
 echo "  - univers-server (backend API)"
 echo "  - univers-ui (Storybook UI)"
