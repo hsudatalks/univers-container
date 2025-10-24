@@ -137,10 +137,10 @@ start_session() {
     tmux set-option -t "$SESSION_NAME" mouse on
     tmux set-option -t "$SESSION_NAME" history-limit 50000
 
-    # 发送欢迎信息（使用单个命令输出，然后再次清屏隐藏命令历史）
-    tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" 'printf "╔════════════════════════════════════════════════════════════╗\n║        Univers Container Manager                         ║\n║        容器管理终端                                        ║\n╚════════════════════════════════════════════════════════════╝\n\n📂 Working directory: '"$CONTAINER_ROOT"'\n\n🔧 Available commands:\n  - tmux-manager start/stop/attach    # 管理此会话\n  - tmux-desktop-view start/attach    # 桌面聚合视图\n  - tmux-mobile-view start/attach     # 移动聚合视图\n  - tmux list-sessions                # 列出所有会话\n\n💡 提示: 使用 claude 启动 Claude Code\n\n"; history -d $(history 1 | awk "{print \$1}")' C-m
-    sleep 0.5
+    # 发送欢迎信息（先清屏，然后打印欢迎信息）
     tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" 'clear' C-m
+    sleep 0.2
+    tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" 'printf "╔════════════════════════════════════════════════════════════╗\n║        Univers Container Manager                         ║\n║        容器管理终端                                        ║\n╚════════════════════════════════════════════════════════════╝\n\n📂 Working directory: '"$CONTAINER_ROOT"'\n\n🔧 Available commands:\n  - tmux-manager start/stop/attach    # 管理此会话\n  - tmux-desktop-view start/attach    # 桌面聚合视图\n  - tmux-mobile-view start/attach     # 移动聚合视图\n  - tmux list-sessions                # 列出所有会话\n\n💡 提示: 使用 claude 启动 Claude Code\n\n"' C-m
 
     log_success "Container Manager 会话已创建"
     echo ""
