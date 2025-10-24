@@ -82,6 +82,92 @@ check_dependencies() {
     return 0
 }
 
+# 自动启动缺失的依赖会话
+auto_start_dependencies() {
+    log_info "检查并启动缺失的依赖会话..."
+    local started=()
+    local failed=()
+
+    # 检查 univers-developer
+    if ! tmux has-session -t "univers-developer" 2>/dev/null; then
+        log_info "启动 univers-developer..."
+        if command -v univers-dev &> /dev/null; then
+            univers-dev developer start && started+=("univers-developer") || failed+=("univers-developer")
+        else
+            log_warning "univers-dev 命令未找到，跳过 univers-developer"
+            failed+=("univers-developer")
+        fi
+    fi
+
+    # 检查 univers-server
+    if ! tmux has-session -t "univers-server" 2>/dev/null; then
+        log_info "启动 univers-server..."
+        if command -v univers-dev &> /dev/null; then
+            univers-dev server start socket && started+=("univers-server") || failed+=("univers-server")
+        else
+            log_warning "univers-dev 命令未找到，跳过 univers-server"
+            failed+=("univers-server")
+        fi
+    fi
+
+    # 检查 univers-ui
+    if ! tmux has-session -t "univers-ui" 2>/dev/null; then
+        log_info "启动 univers-ui..."
+        if command -v univers-dev &> /dev/null; then
+            univers-dev ui start && started+=("univers-ui") || failed+=("univers-ui")
+        else
+            log_warning "univers-dev 命令未找到，跳过 univers-ui"
+            failed+=("univers-ui")
+        fi
+    fi
+
+    # 检查 univers-web
+    if ! tmux has-session -t "univers-web" 2>/dev/null; then
+        log_info "启动 univers-web..."
+        if command -v univers-dev &> /dev/null; then
+            univers-dev web start && started+=("univers-web") || failed+=("univers-web")
+        else
+            log_warning "univers-dev 命令未找到，跳过 univers-web"
+            failed+=("univers-web")
+        fi
+    fi
+
+    # 检查 univers-operator
+    if ! tmux has-session -t "univers-operator" 2>/dev/null; then
+        log_info "启动 univers-operator..."
+        if command -v univers-ops &> /dev/null; then
+            univers-ops operator start && started+=("univers-operator") || failed+=("univers-operator")
+        else
+            log_warning "univers-ops 命令未找到，跳过 univers-operator"
+            failed+=("univers-operator")
+        fi
+    fi
+
+    # 检查 univers-manager
+    if ! tmux has-session -t "univers-manager" 2>/dev/null; then
+        log_info "启动 univers-manager..."
+        if command -v tmux-manager &> /dev/null; then
+            tmux-manager start && started+=("univers-manager") || failed+=("univers-manager")
+        else
+            log_warning "tmux-manager 命令未找到，跳过 univers-manager"
+            failed+=("univers-manager")
+        fi
+    fi
+
+    # 报告结果
+    echo ""
+    if [ ${#started[@]} -gt 0 ]; then
+        log_success "已启动以下会话: ${started[*]}"
+    fi
+    if [ ${#failed[@]} -gt 0 ]; then
+        log_warning "以下会话启动失败或跳过: ${failed[*]}"
+    fi
+    if [ ${#started[@]} -eq 0 ] && [ ${#failed[@]} -eq 0 ]; then
+        log_success "所有依赖会话已在运行"
+    fi
+    echo ""
+}
+
 # 启动会话
 start_session() {
     check_tmux
@@ -96,6 +182,9 @@ start_session() {
     fi
 
     log_view "创建 Desktop View 分屏会话: $SESSION_NAME"
+
+    # 自动启动缺失的依赖会话
+    auto_start_dependencies
 
     # 检查依赖会话
     check_dependencies || true
