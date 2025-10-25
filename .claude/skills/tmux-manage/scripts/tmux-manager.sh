@@ -78,7 +78,7 @@ auto_start_all() {
         desktop)
             log_info "启动桌面视图..."
             if command -v tmux-desktop-view &> /dev/null; then
-                tmux-desktop-view start > /dev/null 2>&1 || log_warning "桌面视图启动失败"
+                tmux-desktop-view start || log_warning "桌面视图启动失败"
             else
                 log_warning "tmux-desktop-view 命令未找到"
             fi
@@ -86,7 +86,7 @@ auto_start_all() {
         mobile)
             log_info "启动移动视图..."
             if command -v tmux-mobile-view &> /dev/null; then
-                tmux-mobile-view start > /dev/null 2>&1 || log_warning "移动视图启动失败"
+                tmux-mobile-view start || log_warning "移动视图启动失败"
             else
                 log_warning "tmux-mobile-view 命令未找到"
             fi
@@ -94,10 +94,10 @@ auto_start_all() {
         both)
             log_info "启动桌面和移动视图..."
             if command -v tmux-desktop-view &> /dev/null; then
-                tmux-desktop-view start > /dev/null 2>&1 || log_warning "桌面视图启动失败"
+                tmux-desktop-view start || log_warning "桌面视图启动失败"
             fi
             if command -v tmux-mobile-view &> /dev/null; then
-                tmux-mobile-view start > /dev/null 2>&1 || log_warning "移动视图启动失败"
+                tmux-mobile-view start || log_warning "移动视图启动失败"
             fi
             ;;
         none)
