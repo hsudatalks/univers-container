@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Container Management Tool (cm)
-# Manages Docker containers, LXD containers, and Tmux sessions
+# Manages Tmux sessions for univers containers
 
 set -e
 
 # Color codes
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+RED='\\033[0;31m'
+GREEN='\\033[0;32m'
+YELLOW='\\033[1;33m'
+BLUE='\\033[0;34m'
+NC='\\033[0m'
 
 # Print help
 print_help() {
@@ -21,27 +21,23 @@ Usage: cm <command> [options]
 Commands:
 
   Tmux Management:
+    tmux start              - Start all tmux sessions (desktop-view, mobile-view, etc)
+    tmux stop               - Stop all tmux sessions
     tmux list              - List all tmux sessions
-    tmux kill-all          - Kill all tmux sessions
+    tmux attach <session>  - Attach to tmux session
     tmux kill <session>    - Kill specific tmux session
     tmux windows <session> - List windows in session
-
-  Docker Management:
-    docker list            - List all containers
-    docker ps              - Show running containers
-    docker start <name>    - Start container
-    docker stop <name>     - Stop container
-    docker logs <name>     - View container logs
 
   Help:
     help, --help, -h       - Show this help message
     version, --version     - Show version
 
 Examples:
-  cm tmux list             # List all tmux sessions
-  cm tmux kill-all         # Close all tmux sessions
-  cm tmux kill my-session  # Close specific session
-  cm docker list           # List all containers
+  cm tmux start                    # Start all tmux sessions
+  cm tmux stop                     # Stop all tmux sessions
+  cm tmux list                     # List all sessions
+  cm tmux attach univers-mobile-view  # Attach to mobile-view session
+  cm tmux windows univers-mobile-view # List windows in session
 
 HELP
 }
@@ -55,14 +51,11 @@ main() {
         tmux)
             tmux_command "$@"
             ;;
-        docker)
-            docker_command "$@"
-            ;;
         help|--help|-h)
             print_help
             ;;
         version|--version)
-            echo "Container Management Tool (cm) v1.0.0"
+            echo "Container Management Tool (cm) v1.2.0"
             ;;
         *)
             echo -e "${RED}Error: Unknown command '$cmd'${NC}"
@@ -78,11 +71,17 @@ tmux_command() {
     shift || true
 
     case "$subcmd" in
+        start)
+            tmux_start
+            ;;
+        stop)
+            tmux_stop_all
+            ;;
         list)
             tmux_list
             ;;
-        kill-all)
-            tmux_kill_all
+        attach)
+            tmux_attach "$1"
             ;;
         kill)
             tmux_kill "$1"
@@ -97,9 +96,33 @@ tmux_command() {
     esac
 }
 
+# Start all tmux sessions using tmux-manager
+tmux_start() {
+    local tmux_manager="/home/ubuntu/repos/univers-container/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
+    
+    if [ ! -f "$tmux_manager" ]; then
+        echo -e "${RED}Error: tmux-manager.sh not found${NC}"
+        exit 1
+    fi
+    
+    bash "$tmux_manager" start
+}
+
+# Stop all tmux sessions
+tmux_stop_all() {
+    local tmux_manager="/home/ubuntu/repos/univers-container/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
+    
+    if [ ! -f "$tmux_manager" ]; then
+        echo -e "${RED}Error: tmux-manager.sh not found${NC}"
+        exit 1
+    fi
+    
+    bash "$tmux_manager" stop-all
+}
+
 # List all tmux sessions
 tmux_list() {
-    echo -e "${BLUE}=== Tmux Sessions ==="${NC}
+    echo -e "${BLUE}=== Tmux Sessions ===${NC}"
     if tmux list-sessions 2>/dev/null; then
         echo ""
         echo -e "${GREEN}Total: $(tmux list-sessions 2>/dev/null | wc -l) sessions${NC}"
@@ -108,18 +131,21 @@ tmux_list() {
     fi
 }
 
-# Kill all tmux sessions
-tmux_kill_all() {
-    local count=$(tmux list-sessions 2>/dev/null | wc -l)
+# Attach to tmux session
+tmux_attach() {
+    local session="$1"
     
-    if [ "$count" -eq 0 ]; then
-        echo -e "${YELLOW}No tmux sessions to kill${NC}"
-        return 0
+    if [ -z "$session" ]; then
+        echo -e "${RED}Error: Session name required${NC}"
+        exit 1
     fi
     
-    echo -e "${YELLOW}Killing $count tmux session(s)...${NC}"
-    tmux kill-server
-    echo -e "${GREEN}✓ All tmux sessions closed${NC}"
+    if ! tmux has-session -t "$session" 2>/dev/null; then
+        echo -e "${RED}Error: Session '$session' not found${NC}"
+        exit 1
+    fi
+    
+    tmux attach-session -t "$session"
 }
 
 # Kill specific tmux session
@@ -148,72 +174,13 @@ tmux_windows() {
         exit 1
     fi
     
-    echo -e "${BLUE}=== Windows in session '$session' ==="${NC}
+    echo -e "${BLUE}=== Windows in session '$session' ===${NC}"
     if tmux list-windows -t "$session" 2>/dev/null; then
         echo ""
     else
         echo -e "${RED}Error: Session '$session' not found${NC}"
         exit 1
     fi
-}
-
-# Docker management functions
-docker_command() {
-    local subcmd="${1:-help}"
-    shift || true
-
-    case "$subcmd" in
-        list)
-            docker_list
-            ;;
-        ps)
-            docker ps
-            ;;
-        start)
-            docker_start "$1"
-            ;;
-        stop)
-            docker_stop "$1"
-            ;;
-        *)
-            echo -e "${RED}Error: Unknown docker command '$subcmd'${NC}"
-            exit 1
-            ;;
-    esac
-}
-
-# List all Docker containers
-docker_list() {
-    echo -e "${BLUE}=== Docker Containers ==="${NC}
-    docker ps -a --format "table {{.Names}}\t{{.Status}}" || true
-}
-
-# Show running Docker containers
-docker_ps() {
-    echo -e "${BLUE}=== Running Docker Containers ==="${NC}
-    docker ps --format "table {{.Names}}\t{{.Status}}" || true
-}
-
-# Start Docker container
-docker_start() {
-    local name="$1"
-    if [ -z "$name" ]; then
-        echo -e "${RED}Error: Container name required${NC}"
-        exit 1
-    fi
-    docker start "$name"
-    echo -e "${GREEN}✓ Container '$name' started${NC}"
-}
-
-# Stop Docker container
-docker_stop() {
-    local name="$1"
-    if [ -z "$name" ]; then
-        echo -e "${RED}Error: Container name required${NC}"
-        exit 1
-    fi
-    docker stop "$name"
-    echo -e "${GREEN}✓ Container '$name' stopped${NC}"
 }
 
 # Run main function
