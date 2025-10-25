@@ -21,9 +21,65 @@
    claude
    ```
 
+## 工具集
+
+### Tmux 会话管理
+
+一键启动/停止所有开发和运维会话：
+
+```bash
+# 启动所有会话（包括 desktop 和 mobile 视图）
+tmux-manager start
+
+# 停止所有会话
+tmux-manager stop-all
+
+# 启动桌面视图
+tmux-desktop-view start
+
+# 启动移动视图
+tmux-mobile-view start
+```
+
+快捷键：
+- `Ctrl+Y` / `Ctrl+U` - 上一个/下一个窗口
+- `Alt+1~4` - 直接切换到指定窗口
+- `Ctrl+B D` - 退出会话（不停止）
+
+### EnOS Skill 同步
+
+同步 `.claude/skills/enos/` 从 hvac-operation 到 hvac-workbench：
+
+```bash
+# 执行同步
+sync-enos
+
+# 试运行（不实际修改）
+sync-enos --dry-run
+
+# 查看帮助
+sync-enos --help
+```
+
+工作流：
+1. 在 hvac-operation 开发 EnOS skill 新功能
+2. 提交并推送到 git
+3. 运行 `sync-enos` 同步到 hvac-workbench
+4. 在 hvac-workbench 提交同步变更
+5. 团队成员 `git pull` 自动获取更新
+
 ## 目录结构
 
-待补充...
+```
+univers-container/
+├── .claude/
+│   └── skills/
+│       ├── container-manage/  # 容器管理 skill
+│       └── tmux-manage/       # Tmux 会话管理 skill
+├── scripts/
+│   └── sync-enos-skill.sh     # EnOS skill 同步脚本
+└── README.md
+```
 
 ## 注意事项
 
