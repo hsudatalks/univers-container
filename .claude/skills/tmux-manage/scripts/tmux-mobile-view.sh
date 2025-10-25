@@ -16,7 +16,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # 动态获取项目根目录（univers-container 的上级目录）
-PROJECT_ROOT="$(cd "$SKILL_DIR/../.." && pwd)"
+PROJECT_ROOT="$(cd "$SKILL_DIR/../../../../" && pwd)"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -149,16 +149,16 @@ auto_start_dependencies() {
         fi
     fi
 
-#    # 检查 univers-manager
-#    if ! tmux has-session -t "univers-manager" 2>/dev/null; then
-#        log_info "启动 univers-manager..."
-#        if command -v tmux-manager &> /dev/null; then
-#            tmux-manager start mobile && started+=("univers-manager") || failed+=("univers-manager")
-#        else
-#            log_warning "tmux-manager 命令未找到，跳过 univers-manager"
-#            failed+=("univers-manager")
-#        fi
-#    fi
+    # 检查 univers-manager
+    if ! tmux has-session -t "univers-manager" 2>/dev/null; then
+        log_info "启动 univers-manager..."
+        if command -v tmux-manager &> /dev/null; then
+            tmux-manager start mobile && started+=("univers-manager") || failed+=("univers-manager")
+        else
+            log_warning "tmux-manager 命令未找到，跳过 univers-manager"
+            failed+=("univers-manager")
+        fi
+    fi
 
     # 报告结果
     echo ""
@@ -233,14 +233,17 @@ start_session() {
     tmux split-window -v -t "$SESSION_NAME:service"
 
     # 第二次垂直分割 - 中下两个pane
-    tmux split-window -v -t "$SESSION_NAME:service.2"
+    tmux split-window -v -t "$SESSION_NAME:service.1"
 
     # 现在有3个 pane（从上到下）:
-    # pane 1: server
+    # pane 1: server (因为 base-index=1)
     # pane 2: ui
     # pane 3: web
 
-    # 设置连接命令
+    # 等待一下确保所有panes都创建完成
+    sleep 0.5
+
+    # 设置连接命令（注意：使用 pane 1、2、3 而不是 0、1、2，因为 base-index=1）
     tmux send-keys -t "$SESSION_NAME:service.1" "unset TMUX && while true; do tmux attach-session -t univers-server 2>/dev/null || sleep 5; done" Enter
     tmux send-keys -t "$SESSION_NAME:service.2" "unset TMUX && while true; do tmux attach-session -t univers-ui 2>/dev/null || sleep 5; done" Enter
     tmux send-keys -t "$SESSION_NAME:service.3" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter
@@ -253,13 +256,13 @@ start_session() {
     tmux new-window -t "$SESSION_NAME" -n "ops" -c "$PROJECT_ROOT"
     tmux send-keys -t "$SESSION_NAME:ops" "unset TMUX && while true; do tmux attach-session -t univers-operator 2>/dev/null || sleep 5; done" Enter
 
-#    # ========================================
-#    # Window 4: manager (1个pane)
-#    # ========================================
-#    log_info "创建 Window 4: manager"
+    # ========================================
+    # Window 4: manager (1个pane)
+    # ========================================
+    log_info "创建 Window 4: manager"
 #
-#    tmux new-window -t "$SESSION_NAME" -n "manager" -c "$PROJECT_ROOT"
-#    tmux send-keys -t "$SESSION_NAME:manager" "unset TMUX && while true; do tmux attach-session -t univers-manager 2>/dev/null || sleep 5; done" Enter
+    tmux new-window -t "$SESSION_NAME" -n "manager" -c "$PROJECT_ROOT"
+    tmux send-keys -t "$SESSION_NAME:manager" "unset TMUX && while true; do tmux attach-session -t univers-manager 2>/dev/null || sleep 5; done" Enter
 
     # ========================================
     # 加载状态栏配置（所有窗口创建完成后）
@@ -269,7 +272,7 @@ start_session() {
     local statusbar_config="$SKILL_DIR/configs/mobile-view-statusbar.conf"
     if [ -f "$statusbar_config" ]; then
         # 对每个窗口应用配置
-        for window in dev service ops; do
+        for window in dev service ops manager; do
             while IFS= read -r line || [ -n "$line" ]; do
                 # Skip comments and empty lines
                 [[ "$line" =~ ^[[:space:]]*# ]] && continue
@@ -301,10 +304,11 @@ start_session() {
     echo "  1. dev      - univers-developer"
     echo "  2. service  - 3个pane (server, ui, web)"
     echo "  3. ops      - univers-operator"
-    echo "  #removed - manager window"
+    echo "  4. manager  - univers-manager"
+
     echo ""
     log_info "使用 '$0 attach' 连接到会话"
-    echo "使用 Ctrl+B 1-4 切换窗口"
+    echo "使用 Ctrl+B 1-4 或 Alt+1-4 切换窗口"
     echo ""
     echo "依赖会话:"
     echo "  - univers-developer (hvac-workbench)"

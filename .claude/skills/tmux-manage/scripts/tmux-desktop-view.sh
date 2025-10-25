@@ -16,7 +16,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # 动态获取项目根目录（univers-container 的上级目录）
-PROJECT_ROOT="$(cd "$SKILL_DIR/../.." && pwd)"
+PROJECT_ROOT="$(cd "$SKILL_DIR/../../../../" && pwd)"
 
 # 颜色定义
 RED='\033[0;31m'

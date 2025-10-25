@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Container Management Tool (cm)
-# Manages Tmux sessions for univers containers
+# Manages container initialization and Tmux sessions for univers containers
 
 set -e
 
@@ -9,7 +9,29 @@ RED='\\033[0;31m'
 GREEN='\\033[0;32m'
 YELLOW='\\033[1;33m'
 BLUE='\\033[0;34m'
+CYAN='\\033[0;36m'
 NC='\\033[0m'
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}ℹ️  $1${NC}"
+}
+
+log_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+log_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+log_error() {
+    echo -e "${RED}❌ $1${NC}"
+}
+
+log_step() {
+    echo -e "${CYAN}▶ $1${NC}"
+}
 
 # Print help
 print_help() {
@@ -19,6 +41,11 @@ Container Management Tool (cm)
 Usage: cm <command> [options]
 
 Commands:
+
+  System Initialization:
+    init [--skip-build]     - Initialize all projects (pnpm, python, etc.)
+                            --skip-build: Skip build steps (faster setup)
+    doctor                  - Check system status and dependencies
 
   Tmux Management:
     tmux start [type]       - Start tmux sessions
@@ -34,15 +61,250 @@ Commands:
     version, --version     - Show version
 
 Examples:
-  cm tmux start                    # Start both desktop and mobile views
-  cm tmux start mobile             # Start only mobile-view
-  cm tmux start desktop            # Start only desktop-view
-  cm tmux stop                     # Stop all tmux sessions
-  cm tmux list                     # List all sessions
-  cm tmux attach univers-mobile-view  # Attach to mobile-view session
-  cm tmux windows univers-mobile-view # List windows in session
+  cm init                              # Full initialization
+  cm init --skip-build                # Fast initialization (no build)
+  cm tmux start                        # Start both desktop and mobile views
+  cm tmux start mobile                 # Start only mobile-view
+  cm doctor                            # Check system status
 
 HELP
+}
+
+# Initialize all projects
+init_projects() {
+    local skip_build=false
+    
+    # Parse arguments
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --skip-build)
+                skip_build=true
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                exit 1
+                ;;
+        esac
+        shift
+    done
+    
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║         Container Project Initialization                  ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    
+    # Initialize hvac-workbench (Node.js/pnpm)
+    init_workbench "$skip_build"
+    
+    # Initialize hvac-operation (Python)
+    init_operation
+    
+    # Initialize univers-container
+    init_univers_container
+    
+    echo ""
+    log_success "All projects initialized successfully!"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Start tmux sessions: cm tmux start"
+    echo "  2. Run individual services: univers-developer, univers-server, etc."
+    echo ""
+}
+
+# Initialize hvac-workbench
+init_workbench() {
+    local skip_build=$1
+    
+    local wb_path="/home/ubuntu/repos/hvac-workbench"
+    
+    if [ ! -d "$wb_path" ]; then
+        log_warning "hvac-workbench not found at $wb_path"
+        return
+    fi
+    
+    echo ""
+    log_step "Initializing hvac-workbench (Node.js/pnpm)..."
+    
+    if [ ! -f "$wb_path/package.json" ]; then
+        log_warning "package.json not found in hvac-workbench"
+        return
+    fi
+    
+    cd "$wb_path"
+
+    # Always run pnpm install to ensure dependencies are properly linked
+    # This fixes broken symlinks in monorepo and ensures UI/Web services work correctly
+    log_info "Installing/updating pnpm dependencies (with lockfile flexibility)..."
+    pnpm install --no-frozen-lockfile || log_error "pnpm install failed"
+    
+    # Check if build tools are built
+    if [ ! -d "$wb_path/packages/dev-tools/dist" ]; then
+        log_info "Building dev-tools..."
+        pnpm --filter @univers/dev-tools build || log_error "dev-tools build failed"
+    else
+        log_info "dev-tools already built"
+    fi
+    
+    # Run setup command if not skipping build
+    if [ "$skip_build" = false ]; then
+        log_info "Running pnpm setup..."
+        pnpm dev setup || log_warning "pnpm dev setup had issues but continuing..."
+    fi
+    
+    log_success "hvac-workbench initialized"
+}
+
+# Initialize hvac-operation (Python)
+init_operation() {
+    local op_path="/home/ubuntu/repos/hvac-operation"
+    
+    if [ ! -d "$op_path" ]; then
+        log_warning "hvac-operation not found at $op_path"
+        return
+    fi
+    
+    echo ""
+    log_step "Initializing hvac-operation (Python)..."
+    
+    if [ ! -f "$op_path/requirements.txt" ]; then
+        log_warning "requirements.txt not found in hvac-operation"
+        return
+    fi
+    
+    cd "$op_path"
+    
+    # Check if venv exists
+    if [ ! -d "$op_path/.venv" ]; then
+        log_info "Creating Python virtual environment..."
+        python3 -m venv .venv || log_error "Failed to create venv"
+    else
+        log_info "Python virtual environment already exists"
+    fi
+    
+    # Activate venv and install requirements
+    log_info "Installing Python dependencies..."
+    source "$op_path/.venv/bin/activate"
+    pip install --upgrade pip || log_warning "pip upgrade had issues"
+    pip install -r requirements.txt || log_error "pip install failed"
+    deactivate
+    
+    log_success "hvac-operation initialized"
+}
+
+# Initialize univers-container
+init_univers_container() {
+    local uc_path="/home/ubuntu/repos/univers-container"
+    
+    if [ ! -d "$uc_path" ]; then
+        log_warning "univers-container not found at $uc_path"
+        return
+    fi
+    
+    echo ""
+    log_step "Checking univers-container..."
+    
+    # univers-container might not need initialization, just verify it exists
+    log_success "univers-container verified"
+}
+
+# Check system dependencies
+check_doctor() {
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║            System Dependency Check (Doctor)                ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    
+    local issues=0
+    
+    # Check Node.js
+    if command -v node &> /dev/null; then
+        local node_version=$(node --version)
+        log_success "Node.js: $node_version"
+    else
+        log_error "Node.js: NOT INSTALLED"
+        issues=$((issues + 1))
+    fi
+    
+    # Check pnpm
+    if command -v pnpm &> /dev/null; then
+        local pnpm_version=$(pnpm --version)
+        log_success "pnpm: $pnpm_version"
+    else
+        log_error "pnpm: NOT INSTALLED"
+        issues=$((issues + 1))
+    fi
+    
+    # Check Python 3
+    if command -v python3 &> /dev/null; then
+        local python_version=$(python3 --version)
+        log_success "Python 3: $python_version"
+    else
+        log_error "Python 3: NOT INSTALLED"
+        issues=$((issues + 1))
+    fi
+    
+    # Check Rust
+    if command -v rustc &> /dev/null; then
+        local rust_version=$(rustc --version)
+        log_success "Rust: $rust_version"
+    else
+        log_warning "Rust: NOT INSTALLED (optional, needed for server compilation)"
+    fi
+    
+    # Check Cargo
+    if command -v cargo &> /dev/null; then
+        local cargo_version=$(cargo --version)
+        log_success "Cargo: $cargo_version"
+    else
+        log_warning "Cargo: NOT INSTALLED (optional, needed for server compilation)"
+    fi
+    
+    # Check tmux
+    if command -v tmux &> /dev/null; then
+        local tmux_version=$(tmux -V)
+        log_success "tmux: $tmux_version"
+    else
+        log_error "tmux: NOT INSTALLED"
+        issues=$((issues + 1))
+    fi
+    
+    # Check Git
+    if command -v git &> /dev/null; then
+        local git_version=$(git --version)
+        log_success "Git: $git_version"
+    else
+        log_error "Git: NOT INSTALLED"
+        issues=$((issues + 1))
+    fi
+    
+    # Check projects
+    echo ""
+    log_info "Project paths:"
+    
+    local projects=(
+        "/home/ubuntu/repos/hvac-workbench"
+        "/home/ubuntu/repos/hvac-operation"
+        "/home/ubuntu/repos/univers-container"
+    )
+    
+    for project in "${projects[@]}"; do
+        if [ -d "$project" ]; then
+            log_success "$project"
+        else
+            log_error "$project: NOT FOUND"
+            issues=$((issues + 1))
+        fi
+    done
+    
+    echo ""
+    if [ $issues -eq 0 ]; then
+        log_success "All essential dependencies installed ✨"
+    else
+        log_error "$issues issue(s) found - please install missing dependencies"
+        return 1
+    fi
 }
 
 # Main command dispatcher
@@ -51,6 +313,12 @@ main() {
     shift || true
 
     case "$cmd" in
+        init)
+            init_projects "$@"
+            ;;
+        doctor)
+            check_doctor
+            ;;
         tmux)
             tmux_command "$@"
             ;;
@@ -58,7 +326,7 @@ main() {
             print_help
             ;;
         version|--version)
-            echo "Container Management Tool (cm) v1.3.0"
+            echo "Container Management Tool (cm) v2.0.0"
             ;;
         *)
             echo -e "${RED}Error: Unknown command '$cmd'${NC}"
