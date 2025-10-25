@@ -21,7 +21,8 @@ Usage: cm <command> [options]
 Commands:
 
   Tmux Management:
-    tmux start              - Start all tmux sessions (desktop-view, mobile-view, etc)
+    tmux start [type]       - Start tmux sessions
+                             Types: desktop, mobile, both (default: both)
     tmux stop               - Stop all tmux sessions
     tmux list              - List all tmux sessions
     tmux attach <session>  - Attach to tmux session
@@ -33,7 +34,9 @@ Commands:
     version, --version     - Show version
 
 Examples:
-  cm tmux start                    # Start all tmux sessions
+  cm tmux start                    # Start both desktop and mobile views
+  cm tmux start mobile             # Start only mobile-view
+  cm tmux start desktop            # Start only desktop-view
   cm tmux stop                     # Stop all tmux sessions
   cm tmux list                     # List all sessions
   cm tmux attach univers-mobile-view  # Attach to mobile-view session
@@ -55,7 +58,7 @@ main() {
             print_help
             ;;
         version|--version)
-            echo "Container Management Tool (cm) v1.2.0"
+            echo "Container Management Tool (cm) v1.3.0"
             ;;
         *)
             echo -e "${RED}Error: Unknown command '$cmd'${NC}"
@@ -72,7 +75,7 @@ tmux_command() {
 
     case "$subcmd" in
         start)
-            tmux_start
+            tmux_start "$@"
             ;;
         stop)
             tmux_stop_all
@@ -96,8 +99,9 @@ tmux_command() {
     esac
 }
 
-# Start all tmux sessions using tmux-manager
+# Start tmux sessions with optional view type
 tmux_start() {
+    local view_type="${1:-both}"  # desktop, mobile, or both
     local tmux_manager="/home/ubuntu/repos/univers-container/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
     
     if [ ! -f "$tmux_manager" ]; then
@@ -105,7 +109,17 @@ tmux_start() {
         exit 1
     fi
     
-    bash "$tmux_manager" start
+    # Validate view type
+    case "$view_type" in
+        desktop|mobile|both)
+            bash "$tmux_manager" start "$view_type"
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown view type '$view_type'${NC}"
+            echo "Valid types: desktop, mobile, both"
+            exit 1
+            ;;
+    esac
 }
 
 # Stop all tmux sessions

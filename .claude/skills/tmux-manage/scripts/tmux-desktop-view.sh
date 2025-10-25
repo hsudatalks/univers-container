@@ -153,7 +153,7 @@ auto_start_dependencies() {
     if ! tmux has-session -t "univers-manager" 2>/dev/null; then
         log_info "启动 univers-manager..."
         if command -v tmux-manager &> /dev/null; then
-            tmux-manager start && started+=("univers-manager") || failed+=("univers-manager")
+            tmux-manager start desktop && started+=("univers-manager") || failed+=("univers-manager")
         else
             log_warning "tmux-manager 命令未找到，跳过 univers-manager"
             failed+=("univers-manager")

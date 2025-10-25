@@ -68,7 +68,7 @@ session_exists() {
 check_dependencies() {
     local missing=()
 
-    for dep in univers-developer univers-server univers-ui univers-web univers-operator univers-manager; do
+    for dep in univers-developer univers-server univers-ui univers-web univers-operator; do
         if ! tmux has-session -t "$dep" 2>/dev/null; then
             missing+=("$dep")
         fi
@@ -149,16 +149,16 @@ auto_start_dependencies() {
         fi
     fi
 
-    # 检查 univers-manager
-    if ! tmux has-session -t "univers-manager" 2>/dev/null; then
-        log_info "启动 univers-manager..."
-        if command -v tmux-manager &> /dev/null; then
-            tmux-manager start && started+=("univers-manager") || failed+=("univers-manager")
-        else
-            log_warning "tmux-manager 命令未找到，跳过 univers-manager"
-            failed+=("univers-manager")
-        fi
-    fi
+#    # 检查 univers-manager
+#    if ! tmux has-session -t "univers-manager" 2>/dev/null; then
+#        log_info "启动 univers-manager..."
+#        if command -v tmux-manager &> /dev/null; then
+#            tmux-manager start mobile && started+=("univers-manager") || failed+=("univers-manager")
+#        else
+#            log_warning "tmux-manager 命令未找到，跳过 univers-manager"
+#            failed+=("univers-manager")
+#        fi
+#    fi
 
     # 报告结果
     echo ""
@@ -253,13 +253,13 @@ start_session() {
     tmux new-window -t "$SESSION_NAME" -n "ops" -c "$PROJECT_ROOT"
     tmux send-keys -t "$SESSION_NAME:ops" "unset TMUX && while true; do tmux attach-session -t univers-operator 2>/dev/null || sleep 5; done" Enter
 
-    # ========================================
-    # Window 4: manager (1个pane)
-    # ========================================
-    log_info "创建 Window 4: manager"
-
-    tmux new-window -t "$SESSION_NAME" -n "manager" -c "$PROJECT_ROOT"
-    tmux send-keys -t "$SESSION_NAME:manager" "unset TMUX && while true; do tmux attach-session -t univers-manager 2>/dev/null || sleep 5; done" Enter
+#    # ========================================
+#    # Window 4: manager (1个pane)
+#    # ========================================
+#    log_info "创建 Window 4: manager"
+#
+#    tmux new-window -t "$SESSION_NAME" -n "manager" -c "$PROJECT_ROOT"
+#    tmux send-keys -t "$SESSION_NAME:manager" "unset TMUX && while true; do tmux attach-session -t univers-manager 2>/dev/null || sleep 5; done" Enter
 
     # ========================================
     # 加载状态栏配置（所有窗口创建完成后）
@@ -269,7 +269,7 @@ start_session() {
     local statusbar_config="$SKILL_DIR/configs/mobile-view-statusbar.conf"
     if [ -f "$statusbar_config" ]; then
         # 对每个窗口应用配置
-        for window in dev service ops manager; do
+        for window in dev service ops; do
             while IFS= read -r line || [ -n "$line" ]; do
                 # Skip comments and empty lines
                 [[ "$line" =~ ^[[:space:]]*# ]] && continue
@@ -301,7 +301,7 @@ start_session() {
     echo "  1. dev      - univers-developer"
     echo "  2. service  - 3个pane (server, ui, web)"
     echo "  3. ops      - univers-operator"
-    echo "  4. manager  - univers-manager"
+    echo "  #removed - manager window"
     echo ""
     log_info "使用 '$0 attach' 连接到会话"
     echo "使用 Ctrl+B 1-4 切换窗口"
@@ -370,7 +370,7 @@ show_status() {
 
         echo ""
         echo "依赖会话状态:"
-        for dep in univers-developer univers-server univers-ui univers-web univers-operator univers-manager; do
+        for dep in univers-developer univers-server univers-ui univers-web univers-operator; do
             if tmux has-session -t "$dep" 2>/dev/null; then
                 echo -e "  ${GREEN}✓${NC} $dep"
             else
