@@ -250,6 +250,9 @@ start_session() {
     # 右侧第二次垂直分割 - 再分一次
     tmux split-window -v -t "$SESSION_NAME:workbench.3" || log_warning "第二次垂直分割失败（窗口可能太小），继续创建..."
 
+    # 等待一下确保所有panes都创建完成
+    sleep 0.5
+
     # 调整 pane 大小比例（左右各占 50%）
     local win_width=$(tmux list-windows -t "$SESSION_NAME:workbench" -F "#{window_width}" | head -1)
     local left_width=$((win_width * 50 / 100))
