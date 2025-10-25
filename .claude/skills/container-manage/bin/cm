@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+# Container Management Tool (cm)
+# Manages Docker containers, LXD containers, and Tmux sessions
+
+set -e
+
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Print help
+print_help() {
+    cat << 'HELP'
+Container Management Tool (cm)
+
+Usage: cm <command> [options]
+
+Commands:
+
+  Tmux Management:
+    tmux list              - List all tmux sessions
+    tmux kill-all          - Kill all tmux sessions
+    tmux kill <session>    - Kill specific tmux session
+    tmux windows <session> - List windows in session
+
+  Docker Management:
+    docker list            - List all containers
+    docker ps              - Show running containers
+    docker start <name>    - Start container
+    docker stop <name>     - Stop container
+    docker logs <name>     - View container logs
+
+  Help:
+    help, --help, -h       - Show this help message
+    version, --version     - Show version
+
+Examples:
+  cm tmux list             # List all tmux sessions
+  cm tmux kill-all         # Close all tmux sessions
+  cm tmux kill my-session  # Close specific session
+  cm docker list           # List all containers
+
+HELP
+}
+
+# Main command dispatcher
+main() {
+    local cmd="${1:-help}"
+    shift || true
+
+    case "$cmd" in
+        tmux)
+            tmux_command "$@"
+            ;;
+        docker)
+            docker_command "$@"
+            ;;
+        help|--help|-h)
+            print_help
+            ;;
+        version|--version)
+            echo "Container Management Tool (cm) v1.0.0"
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown command '$cmd'${NC}"
+            echo "Run 'cm help' for usage information"
+            exit 1
+            ;;
+    esac
+}
+
+# Tmux management functions
+tmux_command() {
+    local subcmd="${1:-help}"
+    shift || true
+
+    case "$subcmd" in
+        list)
+            tmux_list
+            ;;
+        kill-all)
+            tmux_kill_all
+            ;;
+        kill)
+            tmux_kill "$1"
+            ;;
+        windows)
+            tmux_windows "$1"
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown tmux command '$subcmd'${NC}"
+            exit 1
+            ;;
+    esac
+}
+
+# List all tmux sessions
+tmux_list() {
+    echo -e "${BLUE}=== Tmux Sessions ==="${NC}
+    if tmux list-sessions 2>/dev/null; then
+        echo ""
+        echo -e "${GREEN}Total: $(tmux list-sessions 2>/dev/null | wc -l) sessions${NC}"
+    else
+        echo -e "${YELLOW}No tmux sessions found${NC}"
+    fi
+}
+
+# Kill all tmux sessions
+tmux_kill_all() {
+    local count=$(tmux list-sessions 2>/dev/null | wc -l)
+    
+    if [ "$count" -eq 0 ]; then
+        echo -e "${YELLOW}No tmux sessions to kill${NC}"
+        return 0
+    fi
+    
+    echo -e "${YELLOW}Killing $count tmux session(s)...${NC}"
+    tmux kill-server
+    echo -e "${GREEN}✓ All tmux sessions closed${NC}"
+}
+
+# Kill specific tmux session
+tmux_kill() {
+    local session="$1"
+    
+    if [ -z "$session" ]; then
+        echo -e "${RED}Error: Session name required${NC}"
+        exit 1
+    fi
+    
+    if tmux kill-session -t "$session" 2>/dev/null; then
+        echo -e "${GREEN}✓ Session '$session' closed${NC}"
+    else
+        echo -e "${RED}Error: Session '$session' not found${NC}"
+        exit 1
+    fi
+}
+
+# List windows in a tmux session
+tmux_windows() {
+    local session="$1"
+    
+    if [ -z "$session" ]; then
+        echo -e "${RED}Error: Session name required${NC}"
+        exit 1
+    fi
+    
+    echo -e "${BLUE}=== Windows in session '$session' ==="${NC}
+    if tmux list-windows -t "$session" 2>/dev/null; then
+        echo ""
+    else
+        echo -e "${RED}Error: Session '$session' not found${NC}"
+        exit 1
+    fi
+}
+
+# Docker management functions
+docker_command() {
+    local subcmd="${1:-help}"
+    shift || true
+
+    case "$subcmd" in
+        list)
+            docker_list
+            ;;
+        ps)
+            docker ps
+            ;;
+        start)
+            docker_start "$1"
+            ;;
+        stop)
+            docker_stop "$1"
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown docker command '$subcmd'${NC}"
+            exit 1
+            ;;
+    esac
+}
+
+# List all Docker containers
+docker_list() {
+    echo -e "${BLUE}=== Docker Containers ==="${NC}
+    docker ps -a --format "table {{.Names}}\t{{.Status}}" || true
+}
+
+# Show running Docker containers
+docker_ps() {
+    echo -e "${BLUE}=== Running Docker Containers ==="${NC}
+    docker ps --format "table {{.Names}}\t{{.Status}}" || true
+}
+
+# Start Docker container
+docker_start() {
+    local name="$1"
+    if [ -z "$name" ]; then
+        echo -e "${RED}Error: Container name required${NC}"
+        exit 1
+    fi
+    docker start "$name"
+    echo -e "${GREEN}✓ Container '$name' started${NC}"
+}
+
+# Stop Docker container
+docker_stop() {
+    local name="$1"
+    if [ -z "$name" ]; then
+        echo -e "${RED}Error: Container name required${NC}"
+        exit 1
+    fi
+    docker stop "$name"
+    echo -e "${GREEN}✓ Container '$name' stopped${NC}"
+}
+
+# Run main function
+main "$@"
