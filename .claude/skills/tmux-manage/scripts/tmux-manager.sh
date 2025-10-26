@@ -19,7 +19,7 @@ SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # 动态获取 univers-container 根目录
 # SKILL_DIR = .../univers-container/.claude/skills/tmux-manage
 # 需要向上2级到 univers-container
-CONTAINER_ROOT="$(cd "$SKILL_DIR/../.." && pwd)"
+CONTAINER_ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
 
 # 颜色定义
 RED='\033[0;31m'

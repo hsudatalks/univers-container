@@ -7,7 +7,7 @@
 set -e
 
 # 配置
-SESSION_NAME="univers-mobile-view"
+SESSION_NAME="container-mobile-view"
 # 解析符号链接获取真实脚本路径
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 if [ -L "$SCRIPT_PATH" ]; then
