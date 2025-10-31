@@ -210,9 +210,9 @@ start_session() {
     tmux bind-key -n M-3 select-window -t "$SESSION_NAME:3"
     tmux bind-key -n M-4 select-window -t "$SESSION_NAME:4"
 
-    # 设置快捷键：Ctrl+Y/U 切换窗口
-    tmux bind-key -n C-y previous-window
-    tmux bind-key -n C-u next-window
+    # 设置快捷键：Ctrl+H/L 切换窗口
+    tmux bind-key -n C-h previous-window
+    tmux bind-key -n C-l next-window
 
     # ========================================
     # Window 1: dev (1个pane)
@@ -455,7 +455,7 @@ show_help() {
   $0 status
 
 Tmux快捷键:
-  Ctrl+Y, Ctrl+U               上一个/下一个窗口（推荐）
+  Ctrl+H, Ctrl+L               上一个/下一个窗口（推荐）
   Alt+1, Alt+2, Alt+3, Alt+4  快速切换到指定窗口
   Ctrl+B D                     退出会话
   Ctrl+B 1-4                   切换窗口
