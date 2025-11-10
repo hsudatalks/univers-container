@@ -71,6 +71,37 @@ HELP
 }
 
 # Initialize all projects
+# Configure shell environment for bash to find pnpm
+configure_shell_env() {
+    log_step "Configuring shell environment for pnpm..."
+    
+    local bashrc="$HOME/.bashrc"
+    local path_config="export PATH=\$HOME/.local/bin:\$HOME/.npm-global/bin:\$PATH"
+    
+    # Check if PATH is already configured in .bashrc
+    if ! grep -q ".local/bin" "$bashrc" 2>/dev/null; then
+        log_info "Adding pnpm PATH to .bashrc..."
+        echo "" >> "$bashrc"
+        echo "# pnpm and npm global PATH" >> "$bashrc"
+        echo "$path_config" >> "$bashrc"
+        log_success "PATH configured in .bashrc"
+    else
+        log_info ".bashrc already has .local/bin in PATH"
+    fi
+    
+    # Also ensure .bash_profile sources .bashrc
+    local bash_profile="$HOME/.bash_profile"
+    if [ ! -f "$bash_profile" ] || ! grep -q ".bashrc" "$bash_profile" 2>/dev/null; then
+        log_info "Configuring .bash_profile to source .bashrc..."
+        echo "" >> "$bash_profile"
+        echo "# Source .bashrc" >> "$bash_profile"
+        echo "if [ -f ~/.bashrc ]; then" >> "$bash_profile"
+        echo "    . ~/.bashrc" >> "$bash_profile"
+        echo "fi" >> "$bash_profile"
+        log_success ".bash_profile configured"
+    fi
+}
+
 init_projects() {
     local skip_build=false
     
@@ -93,6 +124,9 @@ init_projects() {
     echo "║         Container Project Initialization                  ║"
     echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
+    
+    # Configure shell environment (bash) for pnpm
+    configure_shell_env
     
     # Initialize hvac-workbench (Node.js/pnpm)
     init_workbench "$skip_build"
