@@ -153,7 +153,7 @@ auto_start_dependencies() {
     if ! tmux has-session -t "univers-manager" 2>/dev/null; then
         log_info "启动 univers-manager..."
         if command -v tmux-manager &> /dev/null; then
-            tmux-manager start desktop && started+=("univers-manager") || failed+=("univers-manager")
+            tmux-manager start none && started+=("univers-manager") || failed+=("univers-manager")
         else
             log_warning "tmux-manager 命令未找到，跳过 univers-manager"
             failed+=("univers-manager")
@@ -189,8 +189,12 @@ start_session() {
 
     log_view "创建 Desktop View 分屏会话: $SESSION_NAME"
 
+    # 暂时禁用 set -e，避免依赖启动失败导致脚本退出
+    set +e
     # 自动启动缺失的依赖会话
     auto_start_dependencies
+    # 恢复 set -e
+    set -e
 
     # 检查依赖会话
     check_dependencies || true

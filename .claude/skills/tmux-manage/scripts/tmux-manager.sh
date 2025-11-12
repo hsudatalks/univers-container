@@ -204,6 +204,9 @@ stop_all_sessions() {
 
     # 定义所有会话
     local sessions=(
+        "container-desktop-view"
+        "container-mobile-view"
+        "container-manager"
         "univers-desktop-view"
         "univers-mobile-view"
         "univers-manager"

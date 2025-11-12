@@ -153,7 +153,7 @@ auto_start_dependencies() {
     if ! tmux has-session -t "univers-manager" 2>/dev/null; then
         log_info "启动 univers-manager..."
         if command -v tmux-manager &> /dev/null; then
-            tmux-manager start mobile && started+=("univers-manager") || failed+=("univers-manager")
+            tmux-manager start none && started+=("univers-manager") || failed+=("univers-manager")
         else
             log_warning "tmux-manager 命令未找到，跳过 univers-manager"
             failed+=("univers-manager")
@@ -189,8 +189,12 @@ start_session() {
 
     log_view "创建 Mobile View 多窗口会话: $SESSION_NAME"
 
+    # 暂时禁用 set -e，避免依赖启动失败导致脚本退出
+    set +e
     # 自动启动缺失的依赖会话
     auto_start_dependencies
+    # 恢复 set -e
+    set -e
 
     # 检查依赖会话
     check_dependencies || true
@@ -228,12 +232,15 @@ start_session() {
     log_info "创建 Window 2: service (3 panes)"
 
     tmux new-window -t "$SESSION_NAME" -n "service" -c "$PROJECT_ROOT"
+    log_info "[DEBUG] Window 2 创建完成"
 
     # 第一次垂直分割 - 创建上中两个pane
     tmux split-window -v -t "$SESSION_NAME:service"
+    log_info "[DEBUG] 第一次分割完成"
 
     # 第二次垂直分割 - 中下两个pane
     tmux split-window -v -t "$SESSION_NAME:service.1"
+    log_info "[DEBUG] 第二次分割完成"
 
     # 现在有3个 pane（从上到下）:
     # pane 1: server (因为 base-index=1)
@@ -247,6 +254,7 @@ start_session() {
     tmux send-keys -t "$SESSION_NAME:service.1" "unset TMUX && while true; do tmux attach-session -t univers-server 2>/dev/null || sleep 5; done" Enter
     tmux send-keys -t "$SESSION_NAME:service.2" "unset TMUX && while true; do tmux attach-session -t univers-ui 2>/dev/null || sleep 5; done" Enter
     tmux send-keys -t "$SESSION_NAME:service.3" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter
+    log_info "[DEBUG] Service 窗口所有 pane 配置完成"
 
     # ========================================
     # Window 3: ops (1个pane)
@@ -254,15 +262,19 @@ start_session() {
     log_info "创建 Window 3: ops"
 
     tmux new-window -t "$SESSION_NAME" -n "ops" -c "$PROJECT_ROOT"
+    log_info "[DEBUG] Window 3 创建完成"
     tmux send-keys -t "$SESSION_NAME:ops" "unset TMUX && while true; do tmux attach-session -t univers-operator 2>/dev/null || sleep 5; done" Enter
+    log_info "[DEBUG] Window 3 配置完成"
 
     # ========================================
     # Window 4: manager (1个pane)
     # ========================================
     log_info "创建 Window 4: manager"
-#
+
     tmux new-window -t "$SESSION_NAME" -n "manager" -c "$PROJECT_ROOT"
+    log_info "[DEBUG] Window 4 创建完成"
     tmux send-keys -t "$SESSION_NAME:manager" "unset TMUX && while true; do tmux attach-session -t univers-manager 2>/dev/null || sleep 5; done" Enter
+    log_info "[DEBUG] Window 4 配置完成"
 
     # ========================================
     # 加载状态栏配置（所有窗口创建完成后）
