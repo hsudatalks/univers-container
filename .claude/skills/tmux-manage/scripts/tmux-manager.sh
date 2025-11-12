@@ -69,6 +69,38 @@ session_exists() {
     tmux has-session -t "$SESSION_NAME" 2>/dev/null
 }
 
+# 验证服务是否就绪（检查会话是否有活动进程）
+verify_service_ready() {
+    local session_name="$1"
+    local max_attempts="${2:-6}"  # 最多尝试6次，每次等待0.5秒 = 3秒
+
+    local attempt=0
+    while [ $attempt -lt $max_attempts ]; do
+        # 检查会话是否存在
+        if ! tmux has-session -t "$session_name" 2>/dev/null; then
+            return 1
+        fi
+
+        # 检查会话是否有活动的panes
+        local pane_count=$(tmux list-panes -t "$session_name" 2>/dev/null | wc -l)
+        if [ "$pane_count" -gt 0 ]; then
+            # 检查至少有一个pane有活动进程
+            local pane_pid=$(tmux list-panes -t "$session_name" -F "#{pane_pid}" 2>/dev/null | head -1)
+            if [ -n "$pane_pid" ]; then
+                # 检查是否有子进程（实际的服务进程）
+                if pgrep -P "$pane_pid" > /dev/null 2>&1; then
+                    return 0  # 服务就绪
+                fi
+            fi
+        fi
+
+        sleep 0.5
+        attempt=$((attempt + 1))
+    done
+
+    return 1  # 超时，服务未就绪
+}
+
 # 启动基础服务会话（不包括视图）
 start_base_services() {
     log_info "启动基础服务会话..."
@@ -97,12 +129,18 @@ start_base_services() {
                 local exit_code=$?
                 set -e
 
-                # 给服务一点时间启动
-                sleep 0.3
+                # 给服务一点时间启动，然后验证
+                sleep 0.5
 
                 # 验证会话是否真的创建了
                 if tmux has-session -t "$session_name" 2>/dev/null; then
-                    started+=("$session_name")
+                    # 进一步验证服务是否就绪（有活动进程）
+                    if verify_service_ready "$session_name" 3; then
+                        started+=("$session_name")
+                    else
+                        log_warning "$session_name 会话已创建但服务未就绪"
+                        started+=("$session_name")  # 仍然算作启动成功
+                    fi
                 else
                     log_warning "$session_name 启动失败（会话未创建）"
                     failed+=("$session_name")
@@ -129,6 +167,44 @@ start_base_services() {
     echo ""
 }
 
+# 启动单个视图（带存在性检查）
+start_view_if_needed() {
+    local view_name="$1"
+    local view_session="$2"
+    local view_command="$3"
+
+    # 检查视图会话是否已存在
+    if tmux has-session -t "$view_session" 2>/dev/null; then
+        log_info "$view_name 会话已存在，跳过启动"
+        return 0
+    fi
+
+    # 检查命令是否存在
+    if ! command -v "$view_command" &> /dev/null; then
+        log_warning "$view_command 命令未找到，跳过 $view_name"
+        return 1
+    fi
+
+    # 启动视图
+    log_info "启动 $view_name..."
+    set +e
+    $view_command start --skip-deps >/dev/null 2>&1
+    local exit_code=$?
+    set -e
+
+    # 给视图一点时间启动
+    sleep 0.3
+
+    # 验证会话是否真的创建了
+    if tmux has-session -t "$view_session" 2>/dev/null; then
+        log_success "$view_name 启动成功"
+        return 0
+    else
+        log_warning "$view_name 启动失败（会话未创建）"
+        return 1
+    fi
+}
+
 # 后台启动所有依赖会话和视图
 auto_start_all() {
     local view_type="${1:-both}"  # desktop, mobile, both, none
@@ -142,29 +218,14 @@ auto_start_all() {
     # 然后启动视图会话（它们只连接到服务，不创建服务）
     case "$view_type" in
         desktop)
-            log_info "启动桌面视图..."
-            if command -v tmux-desktop-view &> /dev/null; then
-                tmux-desktop-view start --skip-deps || log_warning "桌面视图启动失败"
-            else
-                log_warning "tmux-desktop-view 命令未找到"
-            fi
+            start_view_if_needed "桌面视图" "container-desktop-view" "tmux-desktop-view"
             ;;
         mobile)
-            log_info "启动移动视图..."
-            if command -v tmux-mobile-view &> /dev/null; then
-                tmux-mobile-view start --skip-deps || log_warning "移动视图启动失败"
-            else
-                log_warning "tmux-mobile-view 命令未找到"
-            fi
+            start_view_if_needed "移动视图" "container-mobile-view" "tmux-mobile-view"
             ;;
         both)
-            log_info "启动桌面和移动视图..."
-            if command -v tmux-desktop-view &> /dev/null; then
-                tmux-desktop-view start --skip-deps || log_warning "桌面视图启动失败"
-            fi
-            if command -v tmux-mobile-view &> /dev/null; then
-                tmux-mobile-view start --skip-deps || log_warning "移动视图启动失败"
-            fi
+            start_view_if_needed "桌面视图" "container-desktop-view" "tmux-desktop-view"
+            start_view_if_needed "移动视图" "container-mobile-view" "tmux-mobile-view"
             ;;
         none)
             log_info "跳过视图启动"
