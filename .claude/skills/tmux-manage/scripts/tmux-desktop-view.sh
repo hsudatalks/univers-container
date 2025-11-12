@@ -176,6 +176,21 @@ auto_start_dependencies() {
 
 # 启动会话
 start_session() {
+    local skip_deps=false
+
+    # 解析参数
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --skip-deps)
+                skip_deps=true
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
     check_tmux
 
     if session_exists; then
@@ -189,12 +204,16 @@ start_session() {
 
     log_view "创建 Desktop View 分屏会话: $SESSION_NAME"
 
-    # 暂时禁用 set -e，避免依赖启动失败导致脚本退出
-    set +e
-    # 自动启动缺失的依赖会话
-    auto_start_dependencies
-    # 恢复 set -e
-    set -e
+    if [ "$skip_deps" != "true" ]; then
+        # 暂时禁用 set -e，避免依赖启动失败导致脚本退出
+        set +e
+        # 自动启动缺失的依赖会话
+        auto_start_dependencies
+        # 恢复 set -e
+        set -e
+    else
+        log_info "跳过依赖启动（由 manager 统一管理）"
+    fi
 
     # 检查依赖会话
     check_dependencies || true

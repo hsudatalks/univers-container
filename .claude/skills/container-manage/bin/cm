@@ -55,6 +55,8 @@ Commands:
     tmux attach <session>  - Attach to tmux session
     tmux kill <session>    - Kill specific tmux session
     tmux windows <session> - List windows in session
+    tmux diagnose          - Diagnose all sessions (check for zombies)
+    tmux cleanup           - Force cleanup all Univers sessions
 
   Help:
     help, --help, -h       - Show this help message
@@ -394,6 +396,12 @@ tmux_command() {
         windows)
             tmux_windows "$1"
             ;;
+        diagnose)
+            tmux_diagnose
+            ;;
+        cleanup)
+            tmux_cleanup
+            ;;
         *)
             echo -e "${RED}Error: Unknown tmux command '$subcmd'${NC}"
             exit 1
@@ -484,12 +492,12 @@ tmux_kill() {
 # List windows in a tmux session
 tmux_windows() {
     local session="$1"
-    
+
     if [ -z "$session" ]; then
         echo -e "${RED}Error: Session name required${NC}"
         exit 1
     fi
-    
+
     echo -e "${BLUE}=== Windows in session '$session' ===${NC}"
     if tmux list-windows -t "$session" 2>/dev/null; then
         echo ""
@@ -497,6 +505,30 @@ tmux_windows() {
         echo -e "${RED}Error: Session '$session' not found${NC}"
         exit 1
     fi
+}
+
+# Diagnose sessions
+tmux_diagnose() {
+    local tmux_manager="/home/ubuntu/repos/univers-container/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
+
+    if [ ! -f "$tmux_manager" ]; then
+        echo -e "${RED}Error: tmux-manager.sh not found${NC}"
+        exit 1
+    fi
+
+    bash "$tmux_manager" diagnose
+}
+
+# Force cleanup sessions
+tmux_cleanup() {
+    local tmux_manager="/home/ubuntu/repos/univers-container/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
+
+    if [ ! -f "$tmux_manager" ]; then
+        echo -e "${RED}Error: tmux-manager.sh not found${NC}"
+        exit 1
+    fi
+
+    bash "$tmux_manager" cleanup
 }
 
 # Run main function

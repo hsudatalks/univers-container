@@ -20,6 +20,8 @@ SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # SKILL_DIR = .../univers-container/.claude/skills/tmux-manage
 # 需要向上2级到 univers-container
 CONTAINER_ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
+# 项目根目录（univers-container 的上级目录，包含所有项目）
+PROJECT_ROOT="$(cd "$CONTAINER_ROOT/.." && pwd)"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -67,18 +69,82 @@ session_exists() {
     tmux has-session -t "$SESSION_NAME" 2>/dev/null
 }
 
+# 启动基础服务会话（不包括视图）
+start_base_services() {
+    log_info "启动基础服务会话..."
+    local started=()
+    local failed=()
+    local already_running=()
+
+    # 定义服务及其启动脚本（按依赖顺序）
+    local services=(
+        "univers-developer:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-developer.sh:start"
+        "univers-server:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-server.sh:start socket"
+        "univers-ui:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-ui.sh:start"
+        "univers-web:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-web.sh:start"
+        "univers-operator:$PROJECT_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/univers-ops:operator start"
+    )
+
+    for service_info in "${services[@]}"; do
+        IFS=':' read -r session_name script args <<< "$service_info"
+
+        if ! tmux has-session -t "$session_name" 2>/dev/null; then
+            log_info "启动 $session_name..."
+            if [ -f "$script" ]; then
+                # 临时禁用 set -e
+                set +e
+                $script $args >/dev/null 2>&1
+                local exit_code=$?
+                set -e
+
+                # 给服务一点时间启动
+                sleep 0.3
+
+                # 验证会话是否真的创建了
+                if tmux has-session -t "$session_name" 2>/dev/null; then
+                    started+=("$session_name")
+                else
+                    log_warning "$session_name 启动失败（会话未创建）"
+                    failed+=("$session_name")
+                fi
+            else
+                log_warning "$script 未找到，跳过 $session_name"
+                failed+=("$session_name")
+            fi
+        else
+            already_running+=("$session_name")
+        fi
+    done
+
+    echo ""
+    if [ ${#started[@]} -gt 0 ]; then
+        log_success "已启动: ${started[*]}"
+    fi
+    if [ ${#already_running[@]} -gt 0 ]; then
+        log_info "已在运行: ${already_running[*]}"
+    fi
+    if [ ${#failed[@]} -gt 0 ]; then
+        log_warning "启动失败或跳过: ${failed[*]}"
+    fi
+    echo ""
+}
+
 # 后台启动所有依赖会话和视图
 auto_start_all() {
     local view_type="${1:-both}"  # desktop, mobile, both, none
 
     log_info "正在后台启动所有依赖会话..."
+    echo ""
 
-    # 启动视图会话（它会自动启动所有依赖）
+    # 先启动基础服务会话（不包括 manager）
+    start_base_services
+
+    # 然后启动视图会话（它们只连接到服务，不创建服务）
     case "$view_type" in
         desktop)
             log_info "启动桌面视图..."
             if command -v tmux-desktop-view &> /dev/null; then
-                tmux-desktop-view start || log_warning "桌面视图启动失败"
+                tmux-desktop-view start --skip-deps || log_warning "桌面视图启动失败"
             else
                 log_warning "tmux-desktop-view 命令未找到"
             fi
@@ -86,7 +152,7 @@ auto_start_all() {
         mobile)
             log_info "启动移动视图..."
             if command -v tmux-mobile-view &> /dev/null; then
-                tmux-mobile-view start || log_warning "移动视图启动失败"
+                tmux-mobile-view start --skip-deps || log_warning "移动视图启动失败"
             else
                 log_warning "tmux-mobile-view 命令未找到"
             fi
@@ -94,24 +160,25 @@ auto_start_all() {
         both)
             log_info "启动桌面和移动视图..."
             if command -v tmux-desktop-view &> /dev/null; then
-                tmux-desktop-view start || log_warning "桌面视图启动失败"
+                tmux-desktop-view start --skip-deps || log_warning "桌面视图启动失败"
             fi
             if command -v tmux-mobile-view &> /dev/null; then
-                tmux-mobile-view start || log_warning "移动视图启动失败"
+                tmux-mobile-view start --skip-deps || log_warning "移动视图启动失败"
             fi
             ;;
         none)
-            log_info "跳过视图启动，仅启动基础会话..."
-            # 直接调用 desktop-view 的 auto_start_dependencies 逻辑
-            # 这里我们可以复用 view 脚本的逻辑，或者单独实现
+            log_info "跳过视图启动"
             ;;
     esac
 
+    echo ""
     log_success "后台启动完成！"
     echo ""
-    log_info "查看所有会话状态: tmux list-sessions"
-    log_info "连接到 desktop-view: tmux-desktop-view attach"
-    log_info "连接到 mobile-view: tmux-mobile-view attach"
+    log_info "查看所有会话状态: cm tmux list"
+    if [ "$view_type" != "none" ]; then
+        log_info "连接到 desktop-view: tmux-desktop-view attach"
+        log_info "连接到 mobile-view: tmux-mobile-view attach"
+    fi
     echo ""
 }
 
@@ -218,19 +285,32 @@ stop_all_sessions() {
     )
 
     local stopped=()
+    local failed=()
     local not_found=()
 
     # 遍历并停止每个会话
     for session in "${sessions[@]}"; do
         if tmux has-session -t "$session" 2>/dev/null; then
             log_info "停止 $session..."
-            tmux kill-session -t "$session" 2>/dev/null || true
-            stopped+=("$session")
+            if tmux kill-session -t "$session" 2>/dev/null; then
+                # 验证会话确实被停止
+                sleep 0.2
+                if ! tmux has-session -t "$session" 2>/dev/null; then
+                    stopped+=("$session")
+                else
+                    log_error "$session 停止失败（会话仍存在）"
+                    failed+=("$session")
+                fi
+            else
+                log_error "$session 停止失败"
+                failed+=("$session")
+            fi
         else
             not_found+=("$session")
         fi
     done
 
+    # 报告结果
     echo ""
     if [ ${#stopped[@]} -gt 0 ]; then
         log_success "已停止 ${#stopped[@]} 个会话:"
@@ -239,13 +319,29 @@ stop_all_sessions() {
         done
     fi
 
+    if [ ${#failed[@]} -gt 0 ]; then
+        echo ""
+        log_error "以下 ${#failed[@]} 个会话停止失败:"
+        for session in "${failed[@]}"; do
+            echo "  ✗ $session"
+        done
+        echo ""
+        log_info "提示: 尝试运行 'cm tmux cleanup' 强制清理"
+    fi
+
     if [ ${#not_found[@]} -gt 0 ]; then
         echo ""
         log_info "${#not_found[@]} 个会话未运行（已跳过）"
     fi
 
     echo ""
-    log_success "所有会话已停止！"
+    if [ ${#failed[@]} -eq 0 ]; then
+        log_success "所有会话已成功停止！"
+        return 0
+    else
+        log_warning "部分会话停止失败，请检查"
+        return 1
+    fi
 }
 
 # 连接到会话
@@ -324,6 +420,125 @@ restart_session() {
     start_session "$view_type"
 }
 
+# 诊断所有会话状态
+diagnose_sessions() {
+    check_tmux
+
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║          Tmux Sessions Diagnostic                          ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+
+    log_info "检查所有 Univers 会话状态..."
+    echo ""
+
+    local all_sessions=(
+        "container-desktop-view:桌面视图"
+        "container-mobile-view:移动视图"
+        "univers-manager:管理终端"
+        "univers-developer:开发终端"
+        "univers-server:服务器"
+        "univers-ui:前端UI"
+        "univers-web:前端Web"
+        "univers-operator:运维终端"
+    )
+
+    local running=0
+    local zombie=0
+    local not_running=0
+
+    for session_info in "${all_sessions[@]}"; do
+        IFS=':' read -r session desc <<< "$session_info"
+        printf "  %-27s " "$session ($desc):"
+
+        if tmux has-session -t "$session" 2>/dev/null; then
+            # 检查会话是否有pane
+            local pane_count=$(tmux list-panes -t "$session" 2>/dev/null | wc -l)
+            if [ "$pane_count" -eq 0 ]; then
+                echo -e "${RED}僵死${NC} (无pane)"
+                zombie=$((zombie + 1))
+            else
+                local window_count=$(tmux list-windows -t "$session" 2>/dev/null | wc -l)
+                echo -e "${GREEN}运行中${NC} ($window_count windows, $pane_count panes)"
+                running=$((running + 1))
+            fi
+        else
+            echo -e "${YELLOW}未运行${NC}"
+            not_running=$((not_running + 1))
+        fi
+    done
+
+    echo ""
+    echo "═══════════════════════════════════════════════════════════"
+    echo "  总结:"
+    echo "    运行中:   $running"
+    echo "    僵死:     $zombie"
+    echo "    未运行:   $not_running"
+    echo "═══════════════════════════════════════════════════════════"
+    echo ""
+
+    if [ $zombie -gt 0 ]; then
+        log_warning "发现僵死会话，建议运行 'cm tmux cleanup' 强制清理"
+    fi
+
+    if [ $running -eq 0 ] && [ $zombie -eq 0 ]; then
+        log_info "没有会话运行。使用 'cm tmux start' 启动会话"
+    fi
+}
+
+# 强制清理所有会话
+force_cleanup() {
+    check_tmux
+
+    log_warning "强制清理所有 Univers 会话..."
+    echo ""
+
+    # 获取所有匹配的会话
+    local all_sessions=$(tmux list-sessions 2>/dev/null | grep -E "(container-|univers-)" | cut -d: -f1)
+
+    if [ -z "$all_sessions" ]; then
+        log_info "没有发现相关会话，无需清理"
+        return 0
+    fi
+
+    echo "将要清理的会话:"
+    echo "$all_sessions" | sed 's/^/  - /'
+    echo ""
+
+    read -p "确认清理？(y/N) " -n 1 -r
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        local cleaned=0
+        local failed=0
+
+        for session in $all_sessions; do
+            log_info "强制杀死 $session..."
+            if tmux kill-session -t "$session" 2>/dev/null; then
+                cleaned=$((cleaned + 1))
+            else
+                failed=$((failed + 1))
+            fi
+        done
+
+        # 再次验证
+        sleep 0.5
+        local remaining=$(tmux list-sessions 2>/dev/null | grep -E "(container-|univers-)" | wc -l)
+
+        echo ""
+        if [ "$remaining" -eq 0 ]; then
+            log_success "清理完成！已清理 $cleaned 个会话"
+        else
+            log_warning "部分清理完成：$cleaned 个成功，$failed 个失败，仍有 $remaining 个会话残留"
+            echo ""
+            log_info "残留会话:"
+            tmux list-sessions 2>/dev/null | grep -E "(container-|univers-)" | sed 's/^/  - /'
+        fi
+    else
+        log_info "已取消清理"
+    fi
+}
+
 # 显示帮助
 show_help() {
     cat << EOF
@@ -343,6 +558,8 @@ show_help() {
   attach          连接到会话
   logs [lines]    显示最近的输出 (默认50行)
   status          显示会话状态
+  diagnose        诊断所有会话状态（检查僵死会话）
+  cleanup         强制清理所有 Univers 相关会话
   help            显示此帮助信息
 
 示例:
@@ -426,6 +643,12 @@ main() {
             ;;
         status)
             show_status
+            ;;
+        diagnose)
+            diagnose_sessions
+            ;;
+        cleanup)
+            force_cleanup
             ;;
         help|--help|-h)
             show_help
