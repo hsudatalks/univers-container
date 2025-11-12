@@ -224,6 +224,7 @@ start_session() {
 
     tmux set-option -t "$SESSION_NAME" base-index 1
     tmux set-window-option -t "$SESSION_NAME" window-size largest
+    tmux set-window-option -t "$SESSION_NAME" pane-base-index 0
     tmux set-option -t "$SESSION_NAME" remain-on-exit off
     tmux set-option -t "$SESSION_NAME" mouse on
     tmux set-option -t "$SESSION_NAME" history-limit 50000
