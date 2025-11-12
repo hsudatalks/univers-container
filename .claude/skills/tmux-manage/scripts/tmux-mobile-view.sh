@@ -253,6 +253,7 @@ start_session() {
     log_info "创建 Window 2: service (3 panes)"
 
     tmux new-window -t "$SESSION_NAME" -n "service" -c "$PROJECT_ROOT"
+    tmux set-window-option -t "$SESSION_NAME:service" pane-base-index 0
     log_info "[DEBUG] Window 2 创建完成"
 
     # 第一次垂直分割 - 创建上中两个pane
