@@ -223,6 +223,7 @@ start_session() {
     tmux new-session -d -s "$SESSION_NAME" -n "dev" -c "$PROJECT_ROOT" bash
 
     tmux set-option -t "$SESSION_NAME" base-index 1
+    tmux set-window-option -t "$SESSION_NAME" window-size largest
     tmux set-option -t "$SESSION_NAME" remain-on-exit off
     tmux set-option -t "$SESSION_NAME" mouse on
     tmux set-option -t "$SESSION_NAME" history-limit 50000
@@ -258,7 +259,7 @@ start_session() {
     log_info "[DEBUG] 第一次分割完成"
 
     # 第二次垂直分割 - 中下两个pane
-    tmux split-window -v -t "$SESSION_NAME:service.1"
+    tmux split-window -v -t "$SESSION_NAME:service.0"
     log_info "[DEBUG] 第二次分割完成"
 
     # 现在有3个 pane（从上到下）:
@@ -269,10 +270,10 @@ start_session() {
     # 等待一下确保所有panes都创建完成
     sleep 0.5
 
-    # 设置连接命令（注意：使用 pane 1、2、3 而不是 0、1、2，因为 base-index=1）
-    tmux send-keys -t "$SESSION_NAME:service.1" "unset TMUX && while true; do tmux attach-session -t univers-server 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:service.2" "unset TMUX && while true; do tmux attach-session -t univers-ui 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:service.3" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter
+    # 设置连接命令（注意：pane 索引始终从 0 开始，与 base-index 无关）
+    tmux send-keys -t "$SESSION_NAME:service.0" "unset TMUX && while true; do tmux attach-session -t univers-server 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:service.1" "unset TMUX && while true; do tmux attach-session -t univers-ui 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:service.2" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter
     log_info "[DEBUG] Service 窗口所有 pane 配置完成"
 
     # ========================================
