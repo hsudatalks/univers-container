@@ -230,7 +230,7 @@ init_operation() {
 
 # Initialize univers-container
 init_univers_container() {
-    local uc_path="/home/ubuntu/repos/univers-container"
+    local uc_path="$HOME/repos/univers-container"
     
     if [ ! -d "$uc_path" ]; then
         log_warning "univers-container not found at $uc_path"
@@ -322,7 +322,7 @@ check_doctor() {
     local projects=(
         "/home/ubuntu/repos/hvac-workbench"
         "/home/ubuntu/repos/hvac-operation"
-        "/home/ubuntu/repos/univers-container"
+        "$HOME/repos/univers-container"
     )
     
     for project in "${projects[@]}"; do
@@ -412,7 +412,7 @@ tmux_command() {
 # Start tmux sessions with optional view type
 tmux_start() {
     local view_type="${1:-both}"  # desktop, mobile, or both
-    local tmux_manager="/home/ubuntu/repos/univers-container/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
+    local tmux_manager="$HOME/repos/univers-container/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
     
     if [ ! -f "$tmux_manager" ]; then
         echo -e "${RED}Error: tmux-manager.sh not found${NC}"
@@ -434,7 +434,7 @@ tmux_start() {
 
 # Stop all tmux sessions
 tmux_stop_all() {
-    local tmux_manager="/home/ubuntu/repos/univers-container/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
+    local tmux_manager="$HOME/repos/univers-container/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
     
     if [ ! -f "$tmux_manager" ]; then
         echo -e "${RED}Error: tmux-manager.sh not found${NC}"
