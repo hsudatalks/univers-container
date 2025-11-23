@@ -236,8 +236,8 @@ start_session() {
     tmux bind-key -n M-4 select-window -t "$SESSION_NAME:4"
 
     # 设置快捷键：Ctrl+H/L 切换窗口
-    tmux bind-key -n C-h previous-window
-    tmux bind-key -n C-l next-window
+    tmux bind-key -n C-y previous-window
+    tmux bind-key -n C-u next-window
 
     # ========================================
     # Window 1: dev (1个pane)
