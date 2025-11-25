@@ -301,7 +301,7 @@ start_session() {
 
     # 布局创建完成后，将 window-size 改为 largest，允许跟随终端大小调整
     # 这样 attach 时窗口会自动适应终端大小
-    tmux set-window-option -t "$SESSION_NAME:workbench" window-size latest
+    tmux set-window-option -t "$SESSION_NAME:workbench" aggressive-resize on
 
     # ========================================
     # Window 2: operation (1个pane)

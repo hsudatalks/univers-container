@@ -223,7 +223,7 @@ start_session() {
     tmux new-session -d -s "$SESSION_NAME" -n "dev" -c "$PROJECT_ROOT" bash
 
     tmux set-option -t "$SESSION_NAME" base-index 1
-    tmux set-window-option -t "$SESSION_NAME" window-size latest
+    tmux set-window-option -t "$SESSION_NAME" aggressive-resize on
     tmux set-window-option -t "$SESSION_NAME" pane-base-index 0
     tmux set-option -t "$SESSION_NAME" remain-on-exit off
     tmux set-option -t "$SESSION_NAME" mouse on
