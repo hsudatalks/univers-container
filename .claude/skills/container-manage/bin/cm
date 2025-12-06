@@ -58,6 +58,18 @@ Commands:
     tmux diagnose          - Diagnose all sessions (check for zombies)
     tmux cleanup           - Force cleanup all Univers sessions
 
+  Univers Developer Management:
+    dev restart [session]   - Restart univers-developer sessions
+                             - No args: restart all univers-* sessions
+                             - developer: restart univers-developer only
+                             - core: restart core development sessions
+                             - <session-name>: restart specific session
+    dev start [session]     - Start univers-developer sessions
+    dev stop [session]      - Stop univers-developer sessions
+    dev status              - Show all univers-developer session status
+    dev attach <session>    - Attach to specific univers-developer session
+    dev list                - List all available univers-developer sessions
+
   Help:
     help, --help, -h       - Show this help message
     version, --version     - Show version
@@ -67,6 +79,12 @@ Examples:
   cm init --skip-build                # Fast initialization (no build)
   cm tmux start                        # Start both desktop and mobile views
   cm tmux start mobile                 # Start only mobile-view
+  cm dev restart                       # Restart all univers-* sessions
+  cm dev restart developer             # Restart univers-developer only
+  cm dev restart core                  # Restart core development sessions
+  cm dev restart univers-server        # Restart specific session
+  cm dev status                        # Show all univers-developer session status
+  cm dev attach univers-developer      # Attach to univers-developer session
   cm doctor                            # Check system status
 
 HELP
@@ -358,6 +376,9 @@ main() {
         tmux)
             tmux_command "$@"
             ;;
+        dev)
+            dev_command "$@"
+            ;;
         help|--help|-h)
             print_help
             ;;
@@ -529,6 +550,504 @@ tmux_cleanup() {
     fi
 
     bash "$tmux_manager" cleanup
+}
+
+# Univers developer management functions
+dev_command() {
+    local subcmd="${1:-help}"
+    shift || true
+
+    case "$subcmd" in
+        restart)
+            dev_restart "$@"
+            ;;
+        start)
+            dev_start "$@"
+            ;;
+        stop)
+            dev_stop "$@"
+            ;;
+        status)
+            dev_status
+            ;;
+        attach)
+            dev_attach "$@"
+            ;;
+        list)
+            dev_list
+            ;;
+        help|--help|-h)
+            dev_help
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown dev command '$subcmd'${NC}"
+            dev_help
+            exit 1
+            ;;
+    esac
+}
+
+# Get the base path for univers-dev scripts
+dev_get_base_path() {
+    local current_user=$(whoami)
+    local base_path="/home/$current_user/repos/hvac-workbench/.claude/skills/univers-dev/scripts"
+    
+    # Try different possible locations
+    if [ -d "$base_path" ]; then
+        echo "$base_path"
+        return 0
+    fi
+    
+    # Try alternative paths
+    local alt_paths=(
+        "/home/ubuntu/repos/hvac-workbench/.claude/skills/univers-dev/scripts"
+        "$HOME/repos/hvac-workbench/.claude/skills/univers-dev/scripts"
+        "./hvac-workbench/.claude/skills/univers-dev/scripts"
+        "../hvac-workbench/.claude/skills/univers-dev/scripts"
+    )
+    
+    for path in "${alt_paths[@]}"; do
+        if [ -d "$path" ]; then
+            echo "$path"
+            return 0
+        fi
+    done
+    
+    echo -e "${RED}Error: univers-dev scripts directory not found${NC}"
+    echo -e "${YELLOW}Searched locations:${NC}"
+    echo "  $base_path"
+    for path in "${alt_paths[@]}"; do
+        echo "  $path"
+    done
+    exit 1
+}
+
+# Define all available univers sessions
+declare -A UNIVERS_SESSIONS=(
+    ["developer"]="tmux-developer.sh"
+    ["server"]="tmux-server.sh"
+    ["ui"]="tmux-ui.sh"
+    ["web"]="tmux-web.sh"
+    ["claude"]="tmux-claude.sh"
+    ["desktop-dev"]="tmux-desktop-dev.sh"
+    ["mobile-dev"]="tmux-mobile-dev.sh"
+)
+
+# Define session categories
+declare -A SESSION_CATEGORIES=(
+    ["core"]="server ui web claude"
+    ["dev-views"]="desktop-dev mobile-dev"
+    ["all"]="developer server ui web claude desktop-dev mobile-dev"
+)
+
+# Get session script path
+dev_get_session_script() {
+    local session_name="$1"
+    local base_path=$(dev_get_base_path)
+    local script_name="${UNIVERS_SESSIONS[$session_name]}"
+    
+    if [ -z "$script_name" ]; then
+        echo -e "${RED}Error: Unknown session '$session_name'${NC}"
+        echo -e "${YELLOW}Available sessions:${NC}"
+        dev_list_sessions
+        exit 1
+    fi
+    
+    local script_path="$base_path/$script_name"
+    if [ ! -f "$script_path" ]; then
+        echo -e "${RED}Error: Script not found: $script_path${NC}"
+        exit 1
+    fi
+    
+    echo "$script_path"
+}
+
+# Check if session exists
+session_exists() {
+    local session_name="$1"
+    tmux has-session -t "$session_name" 2>/dev/null
+}
+
+# Restart specific session
+restart_session() {
+    local session_name="$1"
+    local script_path=$(dev_get_session_script "$session_name")
+    
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  🔄 Restarting $session_name Session${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    log_info "Restarting $session_name session..."
+    bash "$script_path" restart
+}
+
+# Start specific session
+start_session() {
+    local session_name="$1"
+    local script_path=$(dev_get_session_script "$session_name")
+    
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  🚀 Starting $session_name Session${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    log_info "Starting $session_name session..."
+    bash "$script_path" start
+}
+
+# Stop specific session
+stop_session() {
+    local session_name="$1"
+    local script_path=$(dev_get_session_script "$session_name")
+    
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  🛑 Stopping $session_name Session${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    log_info "Stopping $session_name session..."
+    bash "$script_path" stop
+}
+
+# Attach to specific session
+attach_session() {
+    local session_name="$1"
+    local script_path=$(dev_get_session_script "$session_name")
+    
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  🔗 Connecting to $session_name Session${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    log_info "Attaching to $session_name session..."
+    log_warning "Press Ctrl+B then D to detach (session continues running)"
+    echo ""
+    sleep 1
+    
+    bash "$script_path" attach
+}
+
+# Restart multiple sessions
+restart_sessions() {
+    local sessions="$1"
+    
+    for session in $sessions; do
+        restart_session "$session"
+        sleep 1
+    done
+}
+
+# Start multiple sessions
+start_sessions() {
+    local sessions="$1"
+    
+    for session in $sessions; do
+        start_session "$session"
+        sleep 1
+    done
+}
+
+# Stop multiple sessions
+stop_sessions() {
+    local sessions="$1"
+    
+    for session in $sessions; do
+        stop_session "$session"
+        sleep 1
+    done
+}
+
+# Restart univers-developer sessions
+dev_restart() {
+    local target="${1:-all}"
+    
+    case "$target" in
+        "all")
+            echo ""
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}  🔄 Restarting All Univers Sessions${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo ""
+            restart_sessions "${SESSION_CATEGORIES[all]}"
+            ;;
+        "developer")
+            restart_session "developer"
+            ;;
+        "core")
+            echo ""
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}  🔄 Restarting Core Development Sessions${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo ""
+            restart_sessions "${SESSION_CATEGORIES[core]}"
+            ;;
+        "dev-views")
+            echo ""
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}  🔄 Restarting Development View Sessions${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo ""
+            restart_sessions "${SESSION_CATEGORIES[dev-views]}"
+            ;;
+        *)
+            # Specific session name
+            if [[ -n "${UNIVERS_SESSIONS[$target]}" ]]; then
+                restart_session "$target"
+            else
+                echo -e "${RED}Error: Unknown target '$target'${NC}"
+                echo -e "${YELLOW}Use 'cm dev list' to see available sessions${NC}"
+                echo -e "${YELLOW}Or use: all, developer, core, dev-views${NC}"
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+# Start univers-developer sessions
+dev_start() {
+    local target="${1:-all}"
+    
+    case "$target" in
+        "all")
+            echo ""
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}  🚀 Starting All Univers Sessions${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo ""
+            start_sessions "${SESSION_CATEGORIES[all]}"
+            ;;
+        "developer")
+            start_session "developer"
+            ;;
+        "core")
+            echo ""
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}  🚀 Starting Core Development Sessions${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo ""
+            start_sessions "${SESSION_CATEGORIES[core]}"
+            ;;
+        "dev-views")
+            echo ""
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}  🚀 Starting Development View Sessions${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo ""
+            start_sessions "${SESSION_CATEGORIES[dev-views]}"
+            ;;
+        *)
+            # Specific session name
+            if [[ -n "${UNIVERS_SESSIONS[$target]}" ]]; then
+                start_session "$target"
+            else
+                echo -e "${RED}Error: Unknown target '$target'${NC}"
+                echo -e "${YELLOW}Use 'cm dev list' to see available sessions${NC}"
+                echo -e "${YELLOW}Or use: all, developer, core, dev-views${NC}"
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+# Stop univers-developer sessions
+dev_stop() {
+    local target="${1:-all}"
+    
+    case "$target" in
+        "all")
+            echo ""
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}  🛑 Stopping All Univers Sessions${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo ""
+            stop_sessions "${SESSION_CATEGORIES[all]}"
+            ;;
+        "developer")
+            stop_session "developer"
+            ;;
+        "core")
+            echo ""
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}  🛑 Stopping Core Development Sessions${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo ""
+            stop_sessions "${SESSION_CATEGORIES[core]}"
+            ;;
+        "dev-views")
+            echo ""
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo -e "${CYAN}  🛑 Stopping Development View Sessions${NC}"
+            echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+            echo ""
+            stop_sessions "${SESSION_CATEGORIES[dev-views]}"
+            ;;
+        *)
+            # Specific session name
+            if [[ -n "${UNIVERS_SESSIONS[$target]}" ]]; then
+                stop_session "$target"
+            else
+                echo -e "${RED}Error: Unknown target '$target'${NC}"
+                echo -e "${YELLOW}Use 'cm dev list' to see available sessions${NC}"
+                echo -e "${YELLOW}Or use: all, developer, core, dev-views${NC}"
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+# Show univers-developer session status
+dev_status() {
+    local base_path=$(dev_get_base_path)
+    
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  📊 Univers Developer Session Status${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    # Show categorized status
+    echo -e "${MAGENTA}Core Development Sessions:${NC}"
+    for session in ${SESSION_CATEGORIES[core]}; do
+        if session_exists "univers-$session"; then
+            echo -e "  ${GREEN}✅ univers-$session${NC} - Running"
+        else
+            echo -e "  ${RED}❌ univers-$session${NC} - Stopped"
+        fi
+    done
+    
+    echo ""
+    echo -e "${BLUE}Development View Sessions:${NC}"
+    for session in ${SESSION_CATEGORIES[dev-views]}; do
+        if session_exists "univers-$session"; then
+            echo -e "  ${GREEN}✅ univers-$session${NC} - Running"
+        else
+            echo -e "  ${RED}❌ univers-$session${NC} - Stopped"
+        fi
+    done
+    
+    echo ""
+    echo -e "${CYAN}Developer Session:${NC}"
+    if session_exists "univers-developer"; then
+        echo -e "  ${GREEN}✅ univers-developer${NC} - Running"
+    else
+        echo -e "  ${RED}❌ univers-developer${NC} - Stopped"
+    fi
+    
+    echo ""
+    echo -e "${YELLOW}Usage Tips:${NC}"
+    echo "  - Use 'cm dev restart' to restart all sessions"
+    echo "  - Use 'cm dev restart core' for core sessions only"
+    echo "  - Use 'cm dev attach <session>' to connect to specific session"
+    echo "  - Use 'cm dev list' to see all available sessions"
+}
+
+# List all available sessions
+dev_list() {
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  📋 Available Univers Sessions${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    echo -e "${MAGENTA}Core Development Sessions:${NC}"
+    for session in ${SESSION_CATEGORIES[core]}; do
+        echo "  - univers-$session"
+    done
+    
+    echo ""
+    echo -e "${BLUE}Development View Sessions:${NC}"
+    for session in ${SESSION_CATEGORIES[dev-views]}; do
+        echo "  - univers-$session"
+    done
+    
+    echo ""
+    echo -e "${CYAN}Developer Session:${NC}"
+    echo "  - univers-developer"
+    
+    echo ""
+    echo -e "${YELLOW}Special Groups:${NC}"
+    echo "  - all (restart all sessions)"
+    echo "  - core (server, ui, web, claude)"
+    echo "  - dev-views (desktop-dev, mobile-dev)"
+    echo "  - developer (univers-developer only)"
+    
+    echo ""
+    echo -e "${GREEN}Examples:${NC}"
+    echo "  cm dev restart           # Restart all sessions"
+    echo "  cm dev restart core      # Restart core sessions"
+    echo "  cm dev restart server    # Restart univers-server"
+    echo "  cm dev attach ui         # Attach to univers-ui"
+}
+
+# Attach to univers-developer session
+dev_attach() {
+    local session_name="${1:-developer}"
+    
+    # Handle the special case where user might just type 'cm dev attach'
+    if [[ "$session_name" == "developer" ]] || [[ -z "$session_name" ]]; then
+        attach_session "developer"
+    else
+        attach_session "$session_name"
+    fi
+}
+
+# Show dev command help
+dev_help() {
+    cat << 'DEV_HELP'
+
+ Univers Developer Session Management
+
+ Usage: cm dev <command> [target/session]
+
+ Commands:
+   restart [target]    Restart univers-developer sessions
+                       - No args: restart all univers-* sessions
+                       - developer: restart univers-developer only
+                       - core: restart core development sessions
+                       - <session-name>: restart specific session
+   start [target]      Start univers-developer sessions
+                       - Same targets as restart
+   stop [target]       Stop univers-developer sessions
+                       - Same targets as restart
+   status              Show all univers-developer session status
+   attach [session]    Attach to specific univers-developer session
+                       - Default: attach to univers-developer
+   list                List all available univers-developer sessions
+
+ Available Sessions:
+   univers-server      - Backend API server (HTTP + Socket mode)
+   univers-ui          - Storybook UI development
+   univers-web         - Vite Web development server
+   univers-claude      - Claude Code development terminal
+   univers-desktop-dev - Desktop development aggregate view
+   univers-mobile-dev  - Mobile development aggregate view
+   univers-developer   - Developer terminal session
+
+ Special Groups:
+   all                 - All sessions (default)
+   core                - Core development sessions (server, ui, web, claude)
+   dev-views           - Development view sessions (desktop-dev, mobile-dev)
+   developer           - Developer terminal only
+
+ Examples:
+   cm dev restart           # Restart all sessions
+   cm dev restart core      # Restart core development sessions
+   cm dev restart server    # Restart univers-server only
+   cm dev status            # Show status of all sessions
+   cm dev attach ui         # Attach to univers-ui session
+   cm dev list              # List all available sessions
+
+ Tmux Navigation:
+   Ctrl+B D        - Detach from session (session continues running)
+   Ctrl+B [        - Enter scroll mode (press q to exit)
+   Ctrl+B ?        - Show all tmux shortcuts
+
+DEV_HELP
 }
 
 # Run main function

@@ -65,6 +65,14 @@ This skill helps manage development and operations containers with common admini
 - Audit security settings
 - Manage access controls
 
+### 10. Univers Developer Session Management
+- Restart all univers-* development sessions or specific ones
+- Start/stop individual development sessions (server, ui, web, claude, etc.)
+- Monitor status of all development sessions with categorized display
+- Attach to specific development sessions
+- Support for session groups: all, core, dev-views, developer
+- Manage backend API server, UI development, web server, Claude terminal, and development views
+
 ## Common Tasks
 
 ### System Health Check
@@ -100,6 +108,35 @@ journalctl -n 100
 grep -i "error" /var/log/app.log
 ```
 
+### Univers Developer Session Management
+```bash
+# Restart all univers-* development sessions
+cm dev restart
+
+# Restart core development sessions only
+cm dev restart core
+
+# Restart specific session
+cm dev restart univers-server
+cm dev restart univers-ui
+cm dev restart univers-web
+
+# Show status of all sessions
+cm dev status
+
+# Attach to specific session
+cm dev attach univers-server
+cm dev attach univers-ui
+cm dev attach univers-developer
+
+# List all available sessions
+cm dev list
+
+# Start/stop sessions
+cm dev start
+cm dev stop
+```
+
 ## Best Practices
 
 1. Always check current status before making changes
@@ -121,4 +158,6 @@ grep -i "error" /var/log/app.log
 
 ## Version History
 
+- v3.0 (2025-12-06): Complete univers session management - all univers-* sessions supported with individual, group, and categorized control
+- v2.0 (2025-12-06): Added univers-developer session management capabilities  
 - v1.0 (2025-10-24): Initial container management skill
