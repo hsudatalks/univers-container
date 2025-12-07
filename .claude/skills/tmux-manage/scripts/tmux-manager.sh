@@ -110,7 +110,7 @@ start_base_services() {
 
     # 定义服务及其启动脚本（按依赖顺序）
     local services=(
-        "univers-developer:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-developer.sh:start"
+        "univers-developer:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/work/tmux-developer.sh:start"
         "univers-server:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-server.sh:start socket"
         "univers-ui:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-ui.sh:start"
         "univers-web:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-web.sh:start"
