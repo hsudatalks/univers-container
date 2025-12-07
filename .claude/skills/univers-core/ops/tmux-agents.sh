@@ -17,13 +17,14 @@ source "$UNIVERS_CORE/tmux-utils.sh"
 ensure_non_root "$@"
 
 # ============================================
+REPOS_ROOT="$(get_repos_root)"
 # 配置
 # ============================================
 SESSION_NAME="univers-agents"
 WINDOW_NAME="agents"
 SCRIPT_DIR="$(get_script_dir)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-AGENTS_DIR="$PROJECT_ROOT/univers-ark-agents"
+AGENTS_DIR="$PROJECT_ROOT/../hvac-operation/univers-ark-agents"
 
 # ============================================
 # 启动服务
@@ -54,7 +55,7 @@ start_agents() {
     create_session "$SESSION_NAME" "$WINDOW_NAME" "$AGENTS_DIR"
 
     # 加载状态栏配置（如果有）
-    local statusbar_config="$SCRIPT_DIR/../configs/agents-statusbar.conf"
+    local statusbar_config="$REPOS_ROOT/univers-container/.claude/skills/tmux-manage/configs/agents-statusbar.conf"
     if [ -f "$statusbar_config" ]; then
         load_statusbar_config "$SESSION_NAME" "$statusbar_config"
     fi
