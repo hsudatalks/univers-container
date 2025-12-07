@@ -25,7 +25,8 @@ SESSION_NAME="univers-operator"
 WINDOW_NAME="operator"
 REPOS_ROOT="$(get_repos_root)"
 PROJECT_ROOT="$REPOS_ROOT/hvac-operation"
-STATUSBAR_CONFIG="$PROJECT_ROOT/scripts/tmux-configs/operator-statusbar.conf"
+CONTAINER_ROOT="$REPOS_ROOT/univers-container"
+STATUSBAR_CONFIG="$CONTAINER_ROOT/.claude/skills/tmux-manage/configs/operator-statusbar.conf"
 
 # ============================================
 # 启动会话

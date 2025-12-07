@@ -25,7 +25,8 @@ SESSION_NAME="univers-developer"
 WINDOW_NAME="developer"
 REPOS_ROOT="$(get_repos_root)"
 PROJECT_ROOT="$REPOS_ROOT/hvac-workbench"
-STATUSBAR_CONFIG="$REPOS_ROOT/hvac-workbench/.claude/skills/univers-dev/configs/developer-statusbar.conf"
+CONTAINER_ROOT="$REPOS_ROOT/univers-container"
+STATUSBAR_CONFIG="$CONTAINER_ROOT/.claude/skills/tmux-manage/configs/developer-statusbar.conf"
 
 # ============================================
 # 启动会话

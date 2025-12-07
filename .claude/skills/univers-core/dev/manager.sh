@@ -21,8 +21,8 @@ source "$CORE_LIB/service-manager.sh"
 # ============================================
 REPOS_ROOT="$(get_repos_root)"
 PROJECT_ROOT="$REPOS_ROOT/hvac-workbench"
-SKILL_DIR="$PROJECT_ROOT/.claude/skills/univers-dev"
-SCRIPTS_DIR="$SKILL_DIR/scripts"
+# 服务脚本现在统一管理在 univers-core/dev 目录
+SCRIPTS_DIR="$SCRIPT_DIR"
 PROJECT_SCRIPTS="$PROJECT_ROOT/scripts"
 
 # Univers 本地数据目录
