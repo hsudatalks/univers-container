@@ -36,7 +36,8 @@ if [ -L "$SCRIPT_PATH" ]; then
 fi
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 UNIVERS_CORE="$(cd "$SCRIPT_DIR/.." && pwd)"
-CONTAINER_ROOT="$(cd "$UNIVERS_CORE/../.." && pwd)"
+# univers-core -> skills -> .claude -> univers-container (3 levels up)
+CONTAINER_ROOT="$(cd "$UNIVERS_CORE/../../.." && pwd)"
 # 项目路径 (hvac-workbench)
 REPOS_ROOT="$(cd "$CONTAINER_ROOT/.." && pwd)"
 PROJECT_ROOT="$REPOS_ROOT/hvac-workbench"

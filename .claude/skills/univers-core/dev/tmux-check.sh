@@ -215,6 +215,24 @@ result_check() {
     fi
 }
 
+# 重启检查
+restart_check() {
+    local check_type="${1:-all}"
+
+    check_tmux
+
+    # 如果会话存在，先停止
+    if session_exists "$SESSION_NAME"; then
+        log_info "停止现有检查会话..."
+        send_keys "$SESSION_NAME:$WINDOW_NAME" C-c
+        sleep 1
+        kill_session "$SESSION_NAME"
+    fi
+
+    # 启动新检查
+    start_check "$check_type"
+}
+
 # 清理结果
 clean_check() {
     log_info "清理检查结果..."
@@ -233,6 +251,7 @@ Tmux Check Service - 质量检查服务
 
 命令:
     start [type]    启动检查 (类型: all, rust, frontend, clippy, clippy-parallel)
+    restart [type]  重启检查 (停止现有会话并重新启动)
     stop            停止检查
     status          查看状态
     logs [N]        查看日志 (默认 50 行)
@@ -256,6 +275,7 @@ main() {
 
     case "$command" in
         start)   start_check "$@" ;;
+        restart) restart_check "$@" ;;
         stop)    stop_check ;;
         status)  status_check ;;
         logs)    logs_check "$@" ;;
