@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+#
+# Univers - Unified CLI Entry Point
+# 统一命令行入口
+#
+# 用法：
+#   univers <project> <command> [args...]
+#   univers dev server start      # workbench 项目
+#   univers ops monitor start     # operation 项目
+#   univers manage start          # container 管理
+#
+
+set -euo pipefail
+
+# 获取脚本真实路径
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+if [ -L "$SCRIPT_PATH" ]; then
+    SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH")"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+CORE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+CORE_LIB="$CORE_DIR/lib"
+
+# 加载核心库
+source "$CORE_LIB/common.sh"
+
+# 获取项目路径
+CONTAINER_ROOT="$(get_univers_container_root)"
+REPOS_ROOT="$(get_repos_root)"
+
+# 项目映射
+declare -A PROJECT_PATHS=(
+    ["dev"]="$REPOS_ROOT/hvac-workbench"
+    ["workbench"]="$REPOS_ROOT/hvac-workbench"
+    ["ops"]="$REPOS_ROOT/hvac-operation"
+    ["operation"]="$REPOS_ROOT/hvac-operation"
+    ["manage"]="$CONTAINER_ROOT"
+    ["container"]="$CONTAINER_ROOT"
+    ["strategy"]="$REPOS_ROOT/univers-strategy"
+)
+
+# 项目管理脚本映射
+declare -A PROJECT_MANAGERS=(
+    ["dev"]="$REPOS_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/manager.sh"
+    ["workbench"]="$REPOS_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/manager.sh"
+    ["ops"]="$REPOS_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/manager.sh"
+    ["operation"]="$REPOS_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/manager.sh"
+    ["manage"]="$CONTAINER_ROOT/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
+    ["container"]="$CONTAINER_ROOT/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
+    ["work"]="$CORE_DIR/work/manager.sh"
+)
+
+# 显示帮助
+show_help() {
+    cat << EOF
+Univers - 统一开发环境管理工具
+
+用法:
+    univers <scope> <command> [args...]
+    univers help
+
+范围:
+    work               AI Agent 工作会话 (developer, operator)
+    dev, workbench     hvac-workbench 开发服务
+    ops, operation     hvac-operation 运维服务
+    manage, container  univers-container 容器管理
+
+通用命令:
+    help              显示帮助
+    version           显示版本
+    status            显示所有项目状态
+
+示例:
+    univers work developer start      # 启动开发终端
+    univers work operator start       # 启动运维终端
+    univers work status               # 查看工作会话状态
+
+    univers dev server start          # 启动开发服务器
+    univers dev test e2e              # 运行 E2E 测试
+
+    univers ops agents start          # 启动 AI Agents 服务
+
+    univers manage start              # 启动所有管理视图
+
+范围特定命令请使用:
+    univers <scope> help
+
+核心库位置: $CORE_DIR
+EOF
+}
+
+# 显示版本
+show_version() {
+    echo "Univers CLI v1.0.0"
+    echo "Core library: $CORE_DIR"
+}
+
+# 显示所有项目状态
+show_status() {
+    log_info "Univers 项目状态"
+    echo ""
+
+    for project in dev ops manage; do
+        local path="${PROJECT_PATHS[$project]}"
+        local manager="${PROJECT_MANAGERS[$project]}"
+
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo -e "${CYAN}项目: $project${NC}"
+        echo "路径: $path"
+
+        if [ -d "$path" ]; then
+            echo -e "状态: ${GREEN}存在${NC}"
+            if [ -f "$manager" ]; then
+                echo -e "管理器: ${GREEN}已配置${NC}"
+            else
+                echo -e "管理器: ${YELLOW}未配置${NC}"
+            fi
+        else
+            echo -e "状态: ${RED}不存在${NC}"
+        fi
+        echo ""
+    done
+}
+
+# 路由到项目管理器
+route_to_project() {
+    local project="$1"
+    shift
+
+    # 检查项目是否存在
+    if [ -z "${PROJECT_PATHS[$project]:-}" ]; then
+        log_error "未知项目: $project"
+        echo ""
+        echo "可用项目: dev, ops, manage"
+        exit 1
+    fi
+
+    local manager="${PROJECT_MANAGERS[$project]}"
+
+    # 检查管理器是否存在
+    if [ ! -f "$manager" ]; then
+        log_error "项目管理器不存在: $manager"
+        echo ""
+        echo "请先为项目 '$project' 配置管理器"
+        exit 1
+    fi
+
+    # 执行项目管理器
+    exec "$manager" "$@"
+}
+
+# 主入口
+main() {
+    if [ $# -eq 0 ]; then
+        show_help
+        exit 0
+    fi
+
+    local command="$1"
+    shift
+
+    case "$command" in
+        help|--help|-h)
+            show_help
+            ;;
+        version|--version|-v)
+            show_version
+            ;;
+        status)
+            show_status
+            ;;
+        # 工作会话
+        work)
+            exec "$CORE_DIR/work/manager.sh" "$@"
+            ;;
+
+        # 开发管理 (core/dev)
+        dev|workbench)
+            exec "$CORE_DIR/dev/manager.sh" "$@"
+            ;;
+
+        # 运维管理 (core/ops)
+        ops|operation)
+            exec "$CORE_DIR/ops/manager.sh" "$@"
+            ;;
+
+        # 项目路由
+        manage|container|strategy)
+            route_to_project "$command" "$@"
+            ;;
+        *)
+            log_error "未知命令: $command"
+            echo ""
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

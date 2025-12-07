@@ -68,15 +68,23 @@ session_exists() {
 check_dependencies() {
     local missing=()
 
-    for dep in univers-developer univers-server univers-ui univers-web univers-operator; do
+    # 主力会话
+    for dep in univers-developer univers-operator univers-manager; do
+        if ! tmux has-session -t "$dep" 2>/dev/null; then
+            missing+=("$dep")
+        fi
+    done
+
+    # 开发服务 (可选)
+    for dep in univers-server univers-ui univers-web; do
         if ! tmux has-session -t "$dep" 2>/dev/null; then
             missing+=("$dep")
         fi
     done
 
     if [ ${#missing[@]} -gt 0 ]; then
-        log_warning "以下依赖会话未运行: ${missing[*]}"
-        log_info "mobile-view 仍然可以启动，但某些窗口可能无法显示"
+        log_warning "以下会话未运行: ${missing[*]}"
+        log_info "mobile-view 仍然可以启动，未运行的会话会自动重连"
         return 1
     fi
 
@@ -234,99 +242,100 @@ start_session() {
     tmux bind-key -n M-2 select-window -t "$SESSION_NAME:2"
     tmux bind-key -n M-3 select-window -t "$SESSION_NAME:3"
     tmux bind-key -n M-4 select-window -t "$SESSION_NAME:4"
+    tmux bind-key -n M-5 select-window -t "$SESSION_NAME:5"
+    tmux bind-key -n M-6 select-window -t "$SESSION_NAME:6"
 
-    # 设置快捷键：Ctrl+H/L 切换窗口
+    # 设置快捷键：Ctrl+Y/U 切换窗口
     tmux bind-key -n C-y previous-window
     tmux bind-key -n C-u next-window
 
     # ========================================
-    # Window 1: dev (1个pane)
+    # Window 1: dev - developer (主力交互)
     # ========================================
     log_info "创建 Window 1: dev"
-
-    # dev 窗口已经创建（new-session时），连接到 univers-developer
     tmux send-keys -t "$SESSION_NAME:dev" "unset TMUX && while true; do tmux attach-session -t univers-developer 2>/dev/null || sleep 5; done" Enter
 
     # ========================================
-    # Window 2: service (3个pane竖向排列)
+    # Window 2: ops - operator (主力交互)
     # ========================================
-    log_info "创建 Window 2: service (3 panes)"
-
-    tmux new-window -t "$SESSION_NAME" -n "service" -c "$PROJECT_ROOT"
-    tmux set-window-option -t "$SESSION_NAME:service" pane-base-index 0
-    log_info "[DEBUG] Window 2 创建完成"
-
-    # 第一次垂直分割 - 创建上中两个pane
-    tmux split-window -v -t "$SESSION_NAME:service"
-    log_info "[DEBUG] 第一次分割完成"
-
-    # 第二次垂直分割 - 中下两个pane
-    tmux split-window -v -t "$SESSION_NAME:service.0"
-    log_info "[DEBUG] 第二次分割完成"
-
-    # 现在有3个 pane（从上到下）:
-    # pane 1: server (因为 base-index=1)
-    # pane 2: ui
-    # pane 3: web
-
-    # 等待一下确保所有panes都创建完成
-    sleep 0.5
-
-    # 设置连接命令（注意：pane 索引始终从 0 开始，与 base-index 无关）
-    tmux send-keys -t "$SESSION_NAME:service.0" "unset TMUX && while true; do tmux attach-session -t univers-server 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:service.1" "unset TMUX && while true; do tmux attach-session -t univers-ui 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:service.2" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter
-    log_info "[DEBUG] Service 窗口所有 pane 配置完成"
-
-    # ========================================
-    # Window 3: ops (1个pane)
-    # ========================================
-    log_info "创建 Window 3: ops"
-
+    log_info "创建 Window 2: ops"
     tmux new-window -t "$SESSION_NAME" -n "ops" -c "$PROJECT_ROOT"
-    log_info "[DEBUG] Window 3 创建完成"
     tmux send-keys -t "$SESSION_NAME:ops" "unset TMUX && while true; do tmux attach-session -t univers-operator 2>/dev/null || sleep 5; done" Enter
-    log_info "[DEBUG] Window 3 配置完成"
 
     # ========================================
-    # Window 4: manager (1个pane)
+    # Window 3: mgr - manager (主力交互)
     # ========================================
-    log_info "创建 Window 4: manager"
-
-    tmux new-window -t "$SESSION_NAME" -n "manager" -c "$PROJECT_ROOT"
-    log_info "[DEBUG] Window 4 创建完成"
-    tmux send-keys -t "$SESSION_NAME:manager" "unset TMUX && while true; do tmux attach-session -t univers-manager 2>/dev/null || sleep 5; done" Enter
-    log_info "[DEBUG] Window 4 配置完成"
+    log_info "创建 Window 3: mgr"
+    tmux new-window -t "$SESSION_NAME" -n "mgr" -c "$PROJECT_ROOT"
+    tmux send-keys -t "$SESSION_NAME:mgr" "unset TMUX && while true; do tmux attach-session -t univers-manager 2>/dev/null || sleep 5; done" Enter
 
     # ========================================
-    # 加载状态栏配置（所有窗口创建完成后）
+    # Window 4: svc - 开发服务监控 (3 panes)
     # ========================================
-    log_info "应用状态栏配置到所有窗口..."
+    log_info "创建 Window 4: svc (server | ui | web)"
+    tmux new-window -t "$SESSION_NAME" -n "svc" -c "$PROJECT_ROOT"
+
+    # 创建 3 个垂直 pane (从下往上分割)
+    tmux split-window -v -t "$SESSION_NAME:svc"
+    tmux split-window -v -t "$SESSION_NAME:svc"
+    sleep 0.3
+
+    # 均分 pane 高度
+    tmux select-layout -t "$SESSION_NAME:svc" even-vertical
+
+    # 连接到各服务 (pane 1=top, 2=middle, 3=bottom)
+    tmux send-keys -t "$SESSION_NAME:svc.1" "unset TMUX && while true; do tmux attach-session -t univers-server 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:svc.2" "unset TMUX && while true; do tmux attach-session -t univers-ui 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:svc.3" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter
+
+    # ========================================
+    # Window 5: ai - AI 服务监控 (1 pane, 预留扩展)
+    # ========================================
+    log_info "创建 Window 5: ai (agents)"
+    tmux new-window -t "$SESSION_NAME" -n "ai" -c "$PROJECT_ROOT"
+    tmux send-keys -t "$SESSION_NAME:ai" "unset TMUX && while true; do tmux attach-session -t univers-agents 2>/dev/null || sleep 5; done" Enter
+
+    # ========================================
+    # Window 6: qa - 质量检查监控 (3 panes)
+    # ========================================
+    log_info "创建 Window 6: qa (check | e2e | bench)"
+    tmux new-window -t "$SESSION_NAME" -n "qa" -c "$PROJECT_ROOT"
+
+    # 创建 3 个垂直 pane (从下往上分割)
+    tmux split-window -v -t "$SESSION_NAME:qa"
+    tmux split-window -v -t "$SESSION_NAME:qa"
+    sleep 0.3
+
+    # 均分 pane 高度
+    tmux select-layout -t "$SESSION_NAME:qa" even-vertical
+
+    # 连接到各 QA 服务 (pane 1=top, 2=middle, 3=bottom)
+    tmux send-keys -t "$SESSION_NAME:qa.1" "unset TMUX && while true; do tmux attach-session -t univers-check 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:qa.2" "unset TMUX && while true; do tmux attach-session -t univers-e2e 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:qa.3" "unset TMUX && while true; do tmux attach-session -t univers-bench 2>/dev/null || sleep 5; done" Enter
+
+    # ========================================
+    # 加载状态栏配置
+    # ========================================
+    log_info "应用状态栏配置..."
 
     local statusbar_config="$SKILL_DIR/configs/mobile-view-statusbar.conf"
     if [ -f "$statusbar_config" ]; then
-        # 对每个窗口应用配置
-        for window in dev service ops manager; do
+        for window in dev ops mgr svc ai qa; do
             while IFS= read -r line || [ -n "$line" ]; do
-                # Skip comments and empty lines
                 [[ "$line" =~ ^[[:space:]]*# ]] && continue
                 [[ -z "$line" ]] && continue
 
-                # Apply the command to each window
                 if [[ "$line" =~ ^set-option ]]; then
-                    # Session-level options only need to be set once
                     if [ "$window" = "dev" ]; then
                         eval "tmux set-option -t $SESSION_NAME ${line#set-option }" 2>/dev/null || true
                     fi
                 elif [[ "$line" =~ ^setw ]]; then
-                    # Window-level options need to be set for each window
                     eval "tmux set-window-option -t $SESSION_NAME:$window ${line#setw }" 2>/dev/null || true
                 fi
             done < "$statusbar_config"
         done
-        log_info "已加载状态栏配置: mobile-view-statusbar.conf"
-    else
-        log_warning "状态栏配置文件不存在: $statusbar_config"
+        log_info "已加载状态栏配置"
     fi
 
     # 选择 dev 窗口
@@ -334,23 +343,15 @@ start_session() {
 
     log_success "Mobile View 会话创建成功！"
     echo ""
-    echo "会话包含 4 个窗口:"
-    echo "  1. dev      - univers-developer"
-    echo "  2. service  - 3个pane (server, ui, web)"
-    echo "  3. ops      - univers-operator"
-    echo "  4. manager  - univers-manager"
-
+    echo "会话包含 6 个窗口:"
+    echo "  1. dev  - developer (主力交互)"
+    echo "  2. ops  - operator (主力交互)"
+    echo "  3. mgr  - manager (主力交互)"
+    echo "  4. svc  - services (server | ui | web)"
+    echo "  5. ai   - agents (AI 服务)"
+    echo "  6. qa   - check | e2e | bench (质量检查)"
     echo ""
-    log_info "使用 '$0 attach' 连接到会话"
-    echo "使用 Ctrl+B 1-4 或 Alt+1-4 切换窗口"
-    echo ""
-    echo "依赖会话:"
-    echo "  - univers-developer (hvac-workbench)"
-    echo "  - univers-server (hvac-workbench)"
-    echo "  - univers-ui (hvac-workbench)"
-    echo "  - univers-web (hvac-workbench)"
-    echo "  - univers-operator (hvac-operation)"
-    echo "  - univers-manager (univers-container)"
+    log_info "快捷键: Alt+1~6 或 Ctrl+Y/U 切换窗口"
 }
 
 # 停止会话
@@ -407,12 +408,32 @@ show_status() {
         tmux list-windows -t "$SESSION_NAME" -F "  #{window_index}: #{window_name} (#{window_panes} panes)" || true
 
         echo ""
-        echo "依赖会话状态:"
-        for dep in univers-developer univers-server univers-ui univers-web univers-operator; do
+        echo "主力会话:"
+        for dep in univers-developer univers-operator univers-manager; do
             if tmux has-session -t "$dep" 2>/dev/null; then
                 echo -e "  ${GREEN}✓${NC} $dep"
             else
-                echo -e "  ${RED}✗${NC} $dep (未运行)"
+                echo -e "  ${RED}✗${NC} $dep"
+            fi
+        done
+
+        echo ""
+        echo "开发服务:"
+        for dep in univers-server univers-ui univers-web; do
+            if tmux has-session -t "$dep" 2>/dev/null; then
+                echo -e "  ${GREEN}✓${NC} $dep"
+            else
+                echo -e "  ${YELLOW}○${NC} $dep"
+            fi
+        done
+
+        echo ""
+        echo "AI/QA 服务:"
+        for dep in univers-agents univers-check univers-e2e univers-bench; do
+            if tmux has-session -t "$dep" 2>/dev/null; then
+                echo -e "  ${GREEN}✓${NC} $dep"
+            else
+                echo -e "  ${YELLOW}○${NC} $dep"
             fi
         done
 
@@ -429,7 +450,7 @@ show_help() {
     cat << EOF
 📱 Mobile View Tmux Manager
 
-移动聚合视图 - 多窗口切换查看
+移动聚合视图 - 6 窗口切换查看
 
 用法:
   $0 <command> [options]
@@ -444,10 +465,11 @@ show_help() {
 
 窗口布局:
 
-  Window 1: dev (1 pane)
-  - univers-developer
+  Window 1: dev   → univers-developer (主力交互)
+  Window 2: ops   → univers-operator (主力交互)
+  Window 3: mgr   → univers-manager (主力交互)
 
-  Window 2: service (3 panes 竖向排列)
+  Window 4: svc   → 开发服务 (3 panes)
   ┌──────────────┐
   │  server      │
   ├──────────────┤
@@ -456,46 +478,35 @@ show_help() {
   │  web         │
   └──────────────┘
 
-  Window 3: ops (1 pane)
-  - univers-operator
+  Window 5: ai    → univers-agents (AI 服务)
 
-  Window 4: manager (1 pane)
-  - univers-manager
+  Window 6: qa    → 质量检查 (3 panes)
+  ┌──────────────┐
+  │  check       │
+  ├──────────────┤
+  │  e2e         │
+  ├──────────────┤
+  │  bench       │
+  └──────────────┘
 
-依赖会话:
-  - univers-developer: 启动命令 univers-dev developer start
-  - univers-server:    启动命令 univers-dev server start
-  - univers-ui:        启动命令 univers-dev ui start
-  - univers-web:       启动命令 univers-dev web start
-  - univers-operator:  启动命令 univers-ops operator start
-  - univers-manager:   启动命令 tmux-manager start
-
-示例:
-  # 启动所有依赖会话
-  univers-dev developer start
-  univers-dev server start socket
-  univers-dev ui start
-  univers-dev web start
-  univers-ops operator start
-  tmux-manager start
-
-  # 启动 mobile view
-  $0 start
-
-  # 连接到会话
-  $0 attach
-
-  # 查看状态
-  $0 status
+启动依赖会话:
+  univers work developer start   # 开发终端
+  univers work operator start    # 运维终端
+  univers manage start           # 管理面板
+  univers dev server start       # 后端服务
+  univers dev ui start           # UI 开发
+  univers dev web start          # Web 开发
+  univers ops agents start       # AI Agents
+  univers dev check start        # 质量检查
+  univers dev e2e start          # E2E 测试
+  univers dev bench start        # 基准测试
 
 Tmux快捷键:
-  Ctrl+H, Ctrl+L               上一个/下一个窗口（推荐）
-  Alt+1, Alt+2, Alt+3, Alt+4  快速切换到指定窗口
-  Ctrl+B D                     退出会话
-  Ctrl+B 1-4                   切换窗口
-  Ctrl+B ←↑→↓                  在pane间导航（service窗口）
-  Ctrl+B [                     进入滚动模式
-  Ctrl+B ?                     显示所有快捷键
+  Alt+1~6         快速切换到指定窗口
+  Ctrl+Y/U        上一个/下一个窗口
+  Ctrl+B D        退出会话
+  Ctrl+B ←↑→↓     在 pane 间导航
+  Ctrl+B [        进入滚动模式
 
 EOF
 }

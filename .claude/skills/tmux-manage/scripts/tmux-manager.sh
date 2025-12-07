@@ -249,54 +249,54 @@ start_session() {
 
     check_tmux
 
+    local manager_existed=false
     if session_exists; then
-        log_warning "会话 '$SESSION_NAME' 已存在"
-        log_info "使用以下命令:"
-        echo "  $0 attach   - 连接到会话"
-        echo "  $0 status   - 查看状态"
-        echo "  $0 stop     - 停止会话"
-        return 1
+        log_info "Manager 会话已存在，跳过创建"
+        manager_existed=true
     fi
 
-    log_manager "创建 Container Manager 会话: $SESSION_NAME"
+    # 仅当 manager 不存在时才创建
+    if [ "$manager_existed" = false ]; then
+        log_manager "创建 Container Manager 会话: $SESSION_NAME"
 
-    # 创建tmux会话
-    tmux new-session -d -s "$SESSION_NAME" -n "$WINDOW_NAME" -c "$CONTAINER_ROOT"
+        # 创建tmux会话
+        tmux new-session -d -s "$SESSION_NAME" -n "$WINDOW_NAME" -c "$CONTAINER_ROOT"
 
-    # 设置tmux选项（会话级别）
-    tmux set-option -t "$SESSION_NAME" remain-on-exit off
-    tmux set-option -t "$SESSION_NAME" mouse on
-    tmux set-option -t "$SESSION_NAME" history-limit 50000
+        # 设置tmux选项（会话级别）
+        tmux set-option -t "$SESSION_NAME" remain-on-exit off
+        tmux set-option -t "$SESSION_NAME" mouse on
+        tmux set-option -t "$SESSION_NAME" history-limit 50000
 
-    # 加载状态栏配置
-    local statusbar_config="$SKILL_DIR/configs/manager-statusbar.conf"
-    if [ -f "$statusbar_config" ]; then
-        while IFS= read -r line || [ -n "$line" ]; do
-            # Skip comments and empty lines
-            [[ "$line" =~ ^[[:space:]]*# ]] && continue
-            [[ -z "$line" ]] && continue
+        # 加载状态栏配置
+        local statusbar_config="$SKILL_DIR/configs/manager-statusbar.conf"
+        if [ -f "$statusbar_config" ]; then
+            while IFS= read -r line || [ -n "$line" ]; do
+                # Skip comments and empty lines
+                [[ "$line" =~ ^[[:space:]]*# ]] && continue
+                [[ -z "$line" ]] && continue
 
-            # Apply the command to the session
-            # Replace 'set-option' with 'set-option -t $SESSION_NAME'
-            # Replace 'setw' with 'set-window-option -t $SESSION_NAME'
-            if [[ "$line" =~ ^set-option ]]; then
-                eval "tmux set-option -t $SESSION_NAME ${line#set-option }" 2>/dev/null || true
-            elif [[ "$line" =~ ^setw ]]; then
-                eval "tmux set-window-option -t $SESSION_NAME ${line#setw }" 2>/dev/null || true
-            fi
-        done < "$statusbar_config"
-        log_info "已加载状态栏配置: manager-statusbar.conf"
-    else
-        log_warning "状态栏配置文件不存在: $statusbar_config"
+                # Apply the command to the session
+                # Replace 'set-option' with 'set-option -t $SESSION_NAME'
+                # Replace 'setw' with 'set-window-option -t $SESSION_NAME'
+                if [[ "$line" =~ ^set-option ]]; then
+                    eval "tmux set-option -t $SESSION_NAME ${line#set-option }" 2>/dev/null || true
+                elif [[ "$line" =~ ^setw ]]; then
+                    eval "tmux set-window-option -t $SESSION_NAME ${line#setw }" 2>/dev/null || true
+                fi
+            done < "$statusbar_config"
+            log_info "已加载状态栏配置: manager-statusbar.conf"
+        else
+            log_warning "状态栏配置文件不存在: $statusbar_config"
+        fi
+
+        # 发送欢迎信息（先清屏，然后打印欢迎信息）
+        tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" 'clear' C-m
+        sleep 0.2
+        tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" 'printf "╔════════════════════════════════════════════════════════════╗\n║        Univers Container Manager                         ║\n║        容器管理终端                                        ║\n╚════════════════════════════════════════════════════════════╝\n\n📂 Working directory: '"$CONTAINER_ROOT"'\n\n🔧 Available commands:\n  - tmux-manager start/stop/attach    # 管理此会话\n  - tmux-desktop-view start/attach    # 桌面聚合视图\n  - tmux-mobile-view start/attach     # 移动聚合视图\n  - tmux list-sessions                # 列出所有会话\n\n💡 提示: 使用 claude 启动 Claude Code\n\n"' C-m
+
+        log_success "Container Manager 会话已创建"
+        echo ""
     fi
-
-    # 发送欢迎信息（先清屏，然后打印欢迎信息）
-    tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" 'clear' C-m
-    sleep 0.2
-    tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" 'printf "╔════════════════════════════════════════════════════════════╗\n║        Univers Container Manager                         ║\n║        容器管理终端                                        ║\n╚════════════════════════════════════════════════════════════╝\n\n📂 Working directory: '"$CONTAINER_ROOT"'\n\n🔧 Available commands:\n  - tmux-manager start/stop/attach    # 管理此会话\n  - tmux-desktop-view start/attach    # 桌面聚合视图\n  - tmux-mobile-view start/attach     # 移动聚合视图\n  - tmux list-sessions                # 列出所有会话\n\n💡 提示: 使用 claude 启动 Claude Code\n\n"' C-m
-
-    log_success "Container Manager 会话已创建"
-    echo ""
 
     # 自动启动所有依赖会话和视图
     auto_start_all "$view_type"
@@ -327,22 +327,24 @@ stop_session() {
 stop_all_sessions() {
     check_tmux
 
-    log_warning "即将停止所有 Univers 相关会话..."
+    log_warning "即将停止所有 Univers 相关会话（保留 manager）..."
     echo ""
 
-    # 定义所有会话
+    # 定义所有会话（不包括 univers-manager，保持管理会话运行）
     local sessions=(
         "container-desktop-view"
         "container-mobile-view"
         "container-manager"
         "univers-desktop-view"
         "univers-mobile-view"
-        "univers-manager"
         "univers-developer"
         "univers-server"
         "univers-ui"
         "univers-web"
         "univers-operator"
+        "univers-check"
+        "univers-e2e"
+        "univers-bench"
     )
 
     local stopped=()
@@ -398,6 +400,9 @@ stop_all_sessions() {
     echo ""
     if [ ${#failed[@]} -eq 0 ]; then
         log_success "所有会话已成功停止！"
+        if tmux has-session -t "univers-manager" 2>/dev/null; then
+            log_info "univers-manager 会话保持运行中"
+        fi
         return 0
     else
         log_warning "部分会话停止失败，请检查"
