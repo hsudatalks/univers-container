@@ -115,6 +115,10 @@ start_base_services() {
         "univers-ui:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-ui.sh:start"
         "univers-web:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-web.sh:start"
         "univers-operator:$PROJECT_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/univers-ops:operator start"
+        "univers-agents:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/ops/tmux-agents.sh:start"
+        "univers-check:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-check.sh:start"
+        "univers-e2e:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-e2e.sh:start"
+        "univers-bench:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-bench.sh:start"
     )
 
     for service_info in "${services[@]}"; do
