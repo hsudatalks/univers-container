@@ -41,6 +41,7 @@ fi
 register_service "server" "$SCRIPTS_DIR/tmux-server.sh" "univers-server"
 register_service "ui" "$SCRIPTS_DIR/tmux-ui.sh" "univers-ui"
 register_service "web" "$SCRIPTS_DIR/tmux-web.sh" "univers-web"
+register_service "agents" "$SCRIPTS_DIR/tmux-agents.sh" "univers-agents"
 
 # ============================================
 # 测试命令
@@ -378,6 +379,7 @@ Univers Dev Manager - hvac-workbench 开发管理
     server start/stop/restart/status/logs/attach
     ui start/stop/restart/status/logs/attach
     web start/stop/restart/status/logs/attach
+    agents start/stop/restart/status/logs/attach
     all status              查看所有服务状态
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -441,7 +443,7 @@ main() {
             ;;
 
         # 服务管理
-        server|ui|web)
+        server|ui|web|agents)
             handle_service "$command" "$@"
             ;;
 
