@@ -289,11 +289,21 @@ start_session() {
     tmux send-keys -t "$SESSION_NAME:svc.3" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter
 
     # ========================================
-    # Window 5: ai - AI 服务监控 (1 pane, 预留扩展)
+    # Window 5: ai - AI 服务监控 (2 panes: agents | user)
     # ========================================
-    log_info "创建 Window 5: ai (agents)"
+    log_info "创建 Window 5: ai (agents | user)"
     tmux new-window -t "$SESSION_NAME" -n "ai" -c "$PROJECT_ROOT"
-    tmux send-keys -t "$SESSION_NAME:ai" "unset TMUX && while true; do tmux attach-session -t univers-agents 2>/dev/null || sleep 5; done" Enter
+
+    # 创建 2 个垂直 pane (上下分割)
+    tmux split-window -v -t "$SESSION_NAME:ai"
+    sleep 0.3
+
+    # 均分 pane 高度
+    tmux select-layout -t "$SESSION_NAME:ai" even-vertical
+
+    # 连接到 AI 服务 (pane 1=top agents, pane 2=bottom user)
+    tmux send-keys -t "$SESSION_NAME:ai.1" "unset TMUX && while true; do tmux attach-session -t univers-agents 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:ai.2" "unset TMUX && while true; do tmux attach-session -t univers-user 2>/dev/null || sleep 5; done" Enter
 
     # ========================================
     # Window 6: qa - 质量检查监控 (3 panes)
@@ -348,7 +358,7 @@ start_session() {
     echo "  2. ops  - operator (主力交互)"
     echo "  3. mgr  - manager (主力交互)"
     echo "  4. svc  - services (server | ui | web)"
-    echo "  5. ai   - agents (AI 服务)"
+    echo "  5. ai   - AI 服务 (agents | user CLI)"
     echo "  6. qa   - check | e2e | bench (质量检查)"
     echo ""
     log_info "快捷键: Alt+1~6 或 Ctrl+Y/U 切换窗口"
@@ -428,8 +438,18 @@ show_status() {
         done
 
         echo ""
-        echo "AI/QA 服务:"
-        for dep in univers-agents univers-check univers-e2e univers-bench; do
+        echo "AI 服务:"
+        for dep in univers-agents univers-user; do
+            if tmux has-session -t "$dep" 2>/dev/null; then
+                echo -e "  ${GREEN}✓${NC} $dep"
+            else
+                echo -e "  ${YELLOW}○${NC} $dep"
+            fi
+        done
+
+        echo ""
+        echo "QA 服务:"
+        for dep in univers-check univers-e2e univers-bench; do
             if tmux has-session -t "$dep" 2>/dev/null; then
                 echo -e "  ${GREEN}✓${NC} $dep"
             else
@@ -478,7 +498,12 @@ show_help() {
   │  web         │
   └──────────────┘
 
-  Window 5: ai    → univers-agents (AI 服务)
+  Window 5: ai    → AI 服务 (2 panes)
+  ┌──────────────┐
+  │  agents      │
+  ├──────────────┤
+  │  user (CLI)  │
+  └──────────────┘
 
   Window 6: qa    → 质量检查 (3 panes)
   ┌──────────────┐
