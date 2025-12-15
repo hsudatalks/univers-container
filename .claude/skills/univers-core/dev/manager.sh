@@ -44,6 +44,11 @@ register_service "web" "$SCRIPTS_DIR/tmux-web.sh" "univers-web"
 register_service "agents" "$SCRIPTS_DIR/tmux-agents.sh" "univers-agents"
 
 # ============================================
+# Agents 配置
+# ============================================
+AGENTS_SCRIPT="$(cd "$SCRIPT_DIR/../ops" && pwd)/tmux-agents.sh"
+
+# ============================================
 # 测试命令
 # ============================================
 run_test() {
@@ -343,6 +348,18 @@ run_codegen() {
 }
 
 # ============================================
+# Agents 管理命令
+# ============================================
+handle_agents() {
+    if [ ! -f "$AGENTS_SCRIPT" ]; then
+        log_error "Agents 脚本不存在: $AGENTS_SCRIPT"
+        return 1
+    fi
+
+    exec "$AGENTS_SCRIPT" "$@"
+}
+
+# ============================================
 # 处理服务命令
 # ============================================
 handle_service() {
@@ -413,6 +430,16 @@ QA 质量检查 (tmux 托管)
 数据库
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     db clear/explore/switch/stop
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Agents 服务 (tmux)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    agents start [mode]     启动 (dev/serve/prod/build)
+    agents stop             停止
+    agents restart [mode]   重启
+    agents status           查看状态
+    agents logs [lines]     查看日志
+    agents attach           连接到会话
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 其他
@@ -492,6 +519,11 @@ main() {
         # 数据库
         db)
             run_db "$@"
+            ;;
+
+        # Agents
+        agents)
+            handle_agents "$@"
             ;;
 
         # EnOS

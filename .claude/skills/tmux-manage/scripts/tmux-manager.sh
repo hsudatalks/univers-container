@@ -112,13 +112,12 @@ start_base_services() {
     local services=(
         "univers-developer:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/work/tmux-developer.sh:start"
         "univers-server:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-server.sh:start socket"
-        "univers-ui:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-ui.sh:start"
         "univers-web:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-web.sh:start"
         "univers-operator:$PROJECT_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/univers-ops:operator start"
         "univers-agents:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/ops/tmux-agents.sh:start"
-        "univers-check:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-check.sh:start"
-        "univers-e2e:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-e2e.sh:start"
-        "univers-bench:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-bench.sh:start"
+        "univers-check:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-check.sh:idle"
+        "univers-e2e:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-e2e.sh:idle"
+        "univers-bench:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-bench.sh:idle"
     )
 
     for service_info in "${services[@]}"; do
@@ -343,9 +342,9 @@ stop_all_sessions() {
         "univers-mobile-view"
         "univers-developer"
         "univers-server"
-        "univers-ui"
         "univers-web"
         "univers-operator"
+        "univers-agents"
         "univers-check"
         "univers-e2e"
         "univers-bench"
@@ -508,9 +507,12 @@ diagnose_sessions() {
         "univers-manager:管理终端"
         "univers-developer:开发终端"
         "univers-server:服务器"
-        "univers-ui:前端UI"
         "univers-web:前端Web"
         "univers-operator:运维终端"
+        "univers-agents:AI Agents"
+        "univers-check:质量检查"
+        "univers-e2e:E2E测试"
+        "univers-bench:基准测试"
     )
 
     local running=0

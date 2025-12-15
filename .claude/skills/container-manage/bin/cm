@@ -70,6 +70,13 @@ Commands:
     dev attach <session>    - Attach to specific univers-developer session
     dev list                - List all available univers-developer sessions
 
+  Agents Management:
+    agents start            - Start univers-ark-agents service
+    agents stop             - Stop univers-ark-agents service
+    agents restart          - Restart univers-ark-agents service
+    agents status           - Show univers-ark-agents service status
+    agents logs [lines]     - Show univers-ark-agents logs (default: 50 lines)
+
   Help:
     help, --help, -h       - Show this help message
     version, --version     - Show version
@@ -85,6 +92,8 @@ Examples:
   cm dev restart univers-server        # Restart specific session
   cm dev status                        # Show all univers-developer session status
   cm dev attach univers-developer      # Attach to univers-developer session
+  cm agents start                      # Start agents service
+  cm agents status                     # Check agents service status
   cm doctor                            # Check system status
 
 HELP
@@ -379,6 +388,9 @@ main() {
         dev)
             dev_command "$@"
             ;;
+        agents)
+            agents_command "$@"
+            ;;
         help|--help|-h)
             print_help
             ;;
@@ -628,16 +640,15 @@ declare -A UNIVERS_SESSIONS=(
     ["server"]="tmux-server.sh"
     ["ui"]="tmux-ui.sh"
     ["web"]="tmux-web.sh"
-    ["claude"]="tmux-claude.sh"
     ["desktop-dev"]="tmux-desktop-dev.sh"
     ["mobile-dev"]="tmux-mobile-dev.sh"
 )
 
 # Define session categories
 declare -A SESSION_CATEGORIES=(
-    ["core"]="server ui web claude"
+    ["core"]="server ui web"
     ["dev-views"]="desktop-dev mobile-dev"
-    ["all"]="developer server ui web claude desktop-dev mobile-dev"
+    ["all"]="developer server ui web desktop-dev mobile-dev"
 )
 
 # Get session script path
@@ -1023,14 +1034,13 @@ dev_help() {
    univers-server      - Backend API server (HTTP + Socket mode)
    univers-ui          - Storybook UI development
    univers-web         - Vite Web development server
-   univers-claude      - Claude Code development terminal
    univers-desktop-dev - Desktop development aggregate view
    univers-mobile-dev  - Mobile development aggregate view
    univers-developer   - Developer terminal session
 
  Special Groups:
    all                 - All sessions (default)
-   core                - Core development sessions (server, ui, web, claude)
+   core                - Core development sessions (server, ui, web)
    dev-views           - Development view sessions (desktop-dev, mobile-dev)
    developer           - Developer terminal only
 
@@ -1048,6 +1058,130 @@ dev_help() {
    Ctrl+B ?        - Show all tmux shortcuts
 
 DEV_HELP
+}
+
+# Agents management functions
+agents_command() {
+    local subcmd="${1:-help}"
+    shift || true
+
+    case "$subcmd" in
+        start)
+            agents_start "$@"
+            ;;
+        stop)
+            agents_stop
+            ;;
+        restart)
+            agents_restart "$@"
+            ;;
+        status)
+            agents_status
+            ;;
+        logs)
+            agents_logs "$@"
+            ;;
+        attach)
+            agents_attach
+            ;;
+        help|--help|-h)
+            agents_help
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown agents command '$subcmd'${NC}"
+            agents_help
+            exit 1
+            ;;
+    esac
+}
+
+# Agents tmux script
+AGENTS_SCRIPT="$HOME/repos/univers-container/.claude/skills/univers-core/ops/tmux-agents.sh"
+
+# Agents command handler - delegate to tmux script
+agents_start() {
+    local mode="${1:-dev}"
+    if [ ! -f "$AGENTS_SCRIPT" ]; then
+        log_error "Agents script not found: $AGENTS_SCRIPT"
+        exit 1
+    fi
+    exec "$AGENTS_SCRIPT" start "$mode"
+}
+
+agents_stop() {
+    if [ ! -f "$AGENTS_SCRIPT" ]; then
+        log_error "Agents script not found: $AGENTS_SCRIPT"
+        exit 1
+    fi
+    exec "$AGENTS_SCRIPT" stop
+}
+
+agents_restart() {
+    local mode="${1:-dev}"
+    if [ ! -f "$AGENTS_SCRIPT" ]; then
+        log_error "Agents script not found: $AGENTS_SCRIPT"
+        exit 1
+    fi
+    exec "$AGENTS_SCRIPT" restart "$mode"
+}
+
+agents_status() {
+    if [ ! -f "$AGENTS_SCRIPT" ]; then
+        log_error "Agents script not found: $AGENTS_SCRIPT"
+        exit 1
+    fi
+    exec "$AGENTS_SCRIPT" status
+}
+
+agents_logs() {
+    local lines="${1:-50}"
+    if [ ! -f "$AGENTS_SCRIPT" ]; then
+        log_error "Agents script not found: $AGENTS_SCRIPT"
+        exit 1
+    fi
+    exec "$AGENTS_SCRIPT" logs "$lines"
+}
+
+agents_attach() {
+    if [ ! -f "$AGENTS_SCRIPT" ]; then
+        log_error "Agents script not found: $AGENTS_SCRIPT"
+        exit 1
+    fi
+    exec "$AGENTS_SCRIPT" attach
+}
+
+# Show agents help
+agents_help() {
+    cat << 'AGENTS_HELP'
+
+ Univers Ark Agents Management (tmux)
+
+ Usage: cm agents <command> [options]
+
+ Commands:
+   start [mode]        Start univers-ark-agents service
+                       Modes: dev (default), serve, prod, build
+   stop                Stop univers-ark-agents service
+   restart [mode]      Restart univers-ark-agents service
+   status              Show univers-ark-agents service status
+   logs [lines]        Show univers-ark-agents logs (default: 50 lines)
+   attach              Attach to agents tmux session
+   help                Show this help message
+
+ Examples:
+   cm agents start           # Start in dev mode
+   cm agents start serve     # Start in serve mode
+   cm agents stop            # Stop the agents service
+   cm agents restart         # Restart the agents service
+   cm agents status          # Check service status
+   cm agents logs            # Show last 50 lines of logs
+   cm agents logs 100        # Show last 100 lines of logs
+
+ Notes:
+   - Uses tmux for session management
+   - Press Ctrl+B then D to detach from session
+
+AGENTS_HELP
 }
 
 # Run main function

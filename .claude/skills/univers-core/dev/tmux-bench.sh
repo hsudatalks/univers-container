@@ -94,6 +94,36 @@ stop_bench() {
     log_success "基准测试已停止"
 }
 
+# 创建空闲会话（不运行测试）
+idle_bench() {
+    check_tmux
+
+    if session_exists "$SESSION_NAME"; then
+        log_warning "基准测试会话已存在"
+        return 0
+    fi
+
+    if [ ! -d "$PROJECT_ROOT" ]; then
+        log_error "项目目录不存在: $PROJECT_ROOT"
+        return 1
+    fi
+
+    log_service "创建基准测试会话 (空闲模式)"
+
+    # 创建会话
+    create_session "$SESSION_NAME" "$WINDOW_NAME" "$PROJECT_ROOT"
+
+    # 加载状态栏配置
+    local statusbar_config="$REPOS_ROOT/univers-container/.claude/skills/tmux-manage/configs/bench-statusbar.conf"
+    if [ -f "$statusbar_config" ]; then
+        load_statusbar_config "$SESSION_NAME" "$statusbar_config"
+    fi
+
+    log_success "基准测试会话已创建 (空闲)"
+    echo ""
+    echo "使用 'univers dev bench start [suite]' 开始测试"
+}
+
 # 查看状态
 status_bench() {
     check_tmux
@@ -228,6 +258,7 @@ main() {
 
     case "$command" in
         start)   start_bench "$@" ;;
+        idle)    idle_bench ;;
         stop)    stop_bench ;;
         status)  status_bench ;;
         logs)    logs_bench "$@" ;;

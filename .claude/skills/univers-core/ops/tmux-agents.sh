@@ -24,7 +24,7 @@ SESSION_NAME="univers-agents"
 WINDOW_NAME="agents"
 SCRIPT_DIR="$(get_script_dir)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-AGENTS_DIR="$PROJECT_ROOT/../hvac-operation/univers-ark-agents"
+AGENTS_DIR="$REPOS_ROOT/hvac-workbench/apps/univers-ark-agents"
 
 # ============================================
 # 启动服务

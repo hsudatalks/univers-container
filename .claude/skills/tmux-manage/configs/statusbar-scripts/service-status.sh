@@ -42,11 +42,17 @@ case "${1:-}" in
         ;;
     hmr)
         # HMR 状态
-        local port=${2:-3432}
+        port=${2:-3432}
         status=$(check_port "$port")
         [ "$status" = "ON" ] && echo "HMR:ON" || echo "HMR:OFF"
         ;;
+    agents)
+        # 检查 3004 端口 (或自定义端口)
+        port=${2:-3004}
+        status=$(check_port "$port")
+        [ "$status" = "ON" ] && echo ":$port" || echo ":$port?"
+        ;;
     *)
-        echo "Usage: $0 {server|ui|web|socket|hmr}"
+        echo "Usage: $0 {server|ui|web|socket|hmr|agents}"
         ;;
 esac

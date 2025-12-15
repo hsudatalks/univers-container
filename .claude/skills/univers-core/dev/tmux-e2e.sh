@@ -94,6 +94,36 @@ stop_e2e() {
     log_success "E2E 测试已停止"
 }
 
+# 创建空闲会话（不运行测试）
+idle_e2e() {
+    check_tmux
+
+    if session_exists "$SESSION_NAME"; then
+        log_warning "E2E 测试会话已存在"
+        return 0
+    fi
+
+    if [ ! -d "$PROJECT_ROOT" ]; then
+        log_error "项目目录不存在: $PROJECT_ROOT"
+        return 1
+    fi
+
+    log_service "创建 E2E 测试会话 (空闲模式)"
+
+    # 创建会话
+    create_session "$SESSION_NAME" "$WINDOW_NAME" "$PROJECT_ROOT"
+
+    # 加载状态栏配置
+    local statusbar_config="$REPOS_ROOT/univers-container/.claude/skills/tmux-manage/configs/e2e-statusbar.conf"
+    if [ -f "$statusbar_config" ]; then
+        load_statusbar_config "$SESSION_NAME" "$statusbar_config"
+    fi
+
+    log_success "E2E 测试会话已创建 (空闲)"
+    echo ""
+    echo "使用 'univers dev e2e start [module]' 开始测试"
+}
+
 # 查看状态
 status_e2e() {
     check_tmux
@@ -228,6 +258,7 @@ main() {
 
     case "$command" in
         start)   start_e2e "$@" ;;
+        idle)    idle_e2e ;;
         stop)    stop_e2e ;;
         status)  status_e2e ;;
         logs)    logs_e2e "$@" ;;
