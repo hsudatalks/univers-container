@@ -34,7 +34,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 REPOS_ROOT="${REPOS_ROOT:-$(cd "$SCRIPT_DIR/../../../../.." && pwd)}"
 PROJECT_ROOT="$REPOS_ROOT/hvac-workbench"
 CONTAINER_ROOT="$REPOS_ROOT/univers-container"
-AGENTS_DIR="$PROJECT_ROOT/apps/server/univers-ark-agents"
+AGENTS_DIR="$PROJECT_ROOT/apps/univers-ark-agents"
 STATUSBAR_DIR="$CONTAINER_ROOT/.claude/skills/tmux-manage/configs"
 
 # 颜色定义
