@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Univers Alert Command
+# Entry point for the Univers alerting system
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ALERT_SCRIPT="$SCRIPT_DIR/../scripts/alert.sh"
+
+# Check if alert script exists
+if [ ! -f "$ALERT_SCRIPT" ]; then
+    echo "Error: Alert script not found at $ALERT_SCRIPT"
+    exit 1
+fi
+
+# Forward all arguments to the alert script
+exec "$ALERT_SCRIPT" "$@"
