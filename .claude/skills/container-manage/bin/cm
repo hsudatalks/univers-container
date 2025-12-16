@@ -70,6 +70,15 @@ Commands:
     dev attach <session>    - Attach to specific univers-developer session
     dev list                - List all available univers-developer sessions
 
+Resource Management:
+    resource <command>       - Resource-centric management and automation
+    resource discover        - Discover all available resources
+    resource list [type]     - List resources by type
+    resource info <id>       - Show detailed resource information
+    resource start <id>      - Start a resource
+    resource stop <id>       - Stop a resource
+    resource monitor <type>  - Monitor system resources
+
   Agents Management:
     agents start            - Start univers-ark-agents service
     agents stop             - Stop univers-ark-agents service
@@ -388,6 +397,9 @@ main() {
         dev)
             dev_command "$@"
             ;;
+      resource)
+            resource_command "$@"
+            ;;
         agents)
             agents_command "$@"
             ;;
@@ -395,7 +407,7 @@ main() {
             print_help
             ;;
         version|--version)
-            echo "Container Management Tool (cm) v2.0.0"
+            echo "Container Management Tool (cm) v2.1.0"
             ;;
         *)
             echo -e "${RED}Error: Unknown command '$cmd'${NC}"
@@ -1060,6 +1072,74 @@ dev_help() {
 DEV_HELP
 }
 
+# Resource management functions
+resource_command() {
+    local subcmd="${1:-help}"
+    shift || true
+
+    # Get resource script path
+    local resource_script="/home/ubuntu/repos/univers-container/.claude/skills/alerting/bin/resource"
+
+    if [ ! -f "$resource_script" ]; then
+        echo -e "${RED}Error: Resource manager not found${NC}"
+        echo "Please ensure the alerting skill is properly installed."
+        return 1
+    fi
+
+    case "$subcmd" in
+        "init"|"discover"|"list"|"info"|"start"|"stop"|"restart"|"monitor"|"cleanup"|"attach"|"detach"|"kill"|"status"|"policies")
+            # Forward to resource manager
+            "$resource_script" "$subcmd" "$@"
+            ;;
+        "help"|"--help"|"-h")
+            cat << 'RESOURCE_HELP'
+Resource Management
+
+ Usage: cm resource <command> [options]
+
+ Discovery and Status:
+     discover                  Discover all available resources
+     list [type]              List resources (filter by type: cpu, memory, disk, univers_service, tmux_session)
+     info <resource_id>       Show detailed resource information
+     policies                 Show configured management policies
+
+ Resource Actions:
+     start <resource_id>      Start a resource (services)
+     stop <resource_id>       Stop a resource (services)
+     restart <resource_id>    Restart a resource (services)
+     status <resource_id>     Check resource status (services)
+
+     attach <resource_id>     Attach to tmux session
+     detach <resource_id>     Detach from tmux session
+     kill <resource_id>       Kill tmux session
+
+     monitor <resource_type>  Monitor system resources (cpu, memory, disk)
+     cleanup <resource_type>  Clean up system resources (memory, disk)
+
+ Resource IDs format:
+     - cpu:system
+     - memory:system
+     - disk:root
+     - univers_service:<name>
+     - tmux_session:<name>
+
+ Examples:
+     cm resource discover                           # Find all resources
+     cm resource list univers_service              # List Univers services
+     cm resource start univers_service:univers-server  # Start service
+     cm resource attach tmux_session:univers-developer  # Connect to session
+     cm resource monitor memory                    # Monitor memory usage
+
+RESOURCE_HELP
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown resource command '$subcmd'${NC}"
+            echo "Run 'cm resource help' for usage information"
+            return 1
+            ;;
+    esac
+}
+
 # Agents management functions
 agents_command() {
     local subcmd="${1:-help}"
@@ -1095,6 +1175,7 @@ agents_command() {
     esac
 }
 
+<<<<<<< HEAD
 # Agents tmux script
 AGENTS_SCRIPT="$HOME/repos/univers-container/.claude/skills/univers-core/ops/tmux-agents.sh"
 
@@ -1184,5 +1265,7 @@ agents_help() {
 AGENTS_HELP
 }
 
+=======
+>>>>>>> 787574e (feat: Transform alert system into resource-centric management platform)
 # Run main function
 main "$@"

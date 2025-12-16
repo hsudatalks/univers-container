@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Univers Resource Command
+# Entry point for the Univers resource management system
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RESOURCE_SCRIPT="$SCRIPT_DIR/../scripts/resource-manager.sh"
+
+# Check if resource script exists
+if [ ! -f "$RESOURCE_SCRIPT" ]; then
+    echo "Error: Resource manager script not found at $RESOURCE_SCRIPT"
+    exit 1
+fi
+
+# Forward all arguments to the resource manager
+exec "$RESOURCE_SCRIPT" "$@"
