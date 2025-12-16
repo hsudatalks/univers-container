@@ -59,7 +59,13 @@ start_e2e() {
 
     # 构建测试命令
     local test_cmd
-    test_cmd="./scripts/test-e2e-socket.sh $module 2>&1 | tee $RESULTS_DIR/e2e.log; echo \"exit_code=\$?\" >> $RESULTS_DIR/e2e-metadata.txt; echo \"end_time=\$(date '+%Y-%m-%d %H:%M:%S')\" >> $RESULTS_DIR/e2e-metadata.txt; sed -i 's/status=running/status=completed/' $RESULTS_DIR/e2e-metadata.txt"
+    if [ "$module" = "web" ]; then
+        # Web E2E 测试 (Playwright)
+        test_cmd="cd apps/univers-ark-web && pnpm exec playwright test 2>&1 | tee $RESULTS_DIR/e2e.log; echo \"exit_code=\$?\" >> $RESULTS_DIR/e2e-metadata.txt; echo \"end_time=\$(date '+%Y-%m-%d %H:%M:%S')\" >> $RESULTS_DIR/e2e-metadata.txt; sed -i 's/status=running/status=completed/' $RESULTS_DIR/e2e-metadata.txt"
+    else
+        # Backend E2E 测试 (Socket)
+        test_cmd="./scripts/test-e2e-socket.sh $module 2>&1 | tee $RESULTS_DIR/e2e.log; echo \"exit_code=\$?\" >> $RESULTS_DIR/e2e-metadata.txt; echo \"end_time=\$(date '+%Y-%m-%d %H:%M:%S')\" >> $RESULTS_DIR/e2e-metadata.txt; sed -i 's/status=running/status=completed/' $RESULTS_DIR/e2e-metadata.txt"
+    fi
 
     # 发送命令
     send_command "$SESSION_NAME:$WINDOW_NAME" "$test_cmd"
@@ -232,9 +238,6 @@ Tmux E2E Service - E2E 端到端测试服务
 
 命令:
     start [module]  启动 E2E 测试
-                    模块: all (默认), twin, organization, data, control,
-                          integration, hvac, resource, maintenance,
-                          intelligence, validation, computation, relation, frontend
     stop            停止测试
     status          查看状态
     logs [N]        查看日志 (默认 50 行)
@@ -242,13 +245,45 @@ Tmux E2E Service - E2E 端到端测试服务
     result          查看结果摘要
     clean           清理结果
 
+可用模块:
+    web             Web 应用 E2E 测试 (Playwright)
+    twin            Digital Twin E2E 测试
+    organization    Organization E2E 测试
+    data            Data 模块 E2E 测试
+    control         Control 模块 E2E 测试
+    integration     Integration 模块 E2E 测试
+    hvac            HVAC 模块 E2E 测试
+    resource        Resource 模块 E2E 测试
+    maintenance     Maintenance 模块 E2E 测试
+    intelligence    Intelligence 模块 E2E 测试
+    validation      Validation 模块 E2E 测试
+    computation     Computation 模块 E2E 测试
+    relation        Relation 模块 E2E 测试
+
 示例:
-    $0 start              # 运行所有 E2E 测试
-    $0 start twin         # 只测试 twin 模块
+    $0 start web          # 运行 Web E2E 测试
+    $0 start twin         # 运行 Twin E2E 测试
     $0 status             # 查看测试状态
     $0 logs 100           # 查看最后 100 行日志
 
 EOF
+}
+
+# 重启测试 (停止后重新启动)
+restart_e2e() {
+    local module="${1:-all}"
+
+    check_tmux
+
+    # 如果会话存在，先停止
+    if session_exists "$SESSION_NAME"; then
+        log_info "停止现有 E2E 测试会话..."
+        stop_e2e
+        sleep 1
+    fi
+
+    # 启动新测试
+    start_e2e "$module"
 }
 
 # 主入口
@@ -258,6 +293,7 @@ main() {
 
     case "$command" in
         start)   start_e2e "$@" ;;
+        restart) restart_e2e "$@" ;;
         idle)    idle_e2e ;;
         stop)    stop_e2e ;;
         status)  status_e2e ;;

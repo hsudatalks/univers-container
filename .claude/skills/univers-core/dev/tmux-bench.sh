@@ -59,7 +59,13 @@ start_bench() {
 
     # 构建测试命令
     local bench_cmd
-    bench_cmd="./scripts/test-benchmark.sh $suite 2>&1 | tee $RESULTS_DIR/bench.log; echo \"exit_code=\$?\" >> $RESULTS_DIR/metadata.txt; echo \"end_time=\$(date '+%Y-%m-%d %H:%M:%S')\" >> $RESULTS_DIR/metadata.txt; sed -i 's/status=running/status=completed/' $RESULTS_DIR/metadata.txt"
+    if [ "$suite" = "web" ]; then
+        # Web 基准测试使用 Playwright
+        bench_cmd="pnpm --filter univers-ark-web exec playwright test --project bench 2>&1 | tee $RESULTS_DIR/bench.log; echo \"exit_code=\$?\" >> $RESULTS_DIR/metadata.txt; echo \"end_time=\$(date '+%Y-%m-%d %H:%M:%S')\" >> $RESULTS_DIR/metadata.txt; sed -i 's/status=running/status=completed/' $RESULTS_DIR/metadata.txt"
+    else
+        # SDK 基准测试使用 vitest
+        bench_cmd="./scripts/test-benchmark.sh $suite 2>&1 | tee $RESULTS_DIR/bench.log; echo \"exit_code=\$?\" >> $RESULTS_DIR/metadata.txt; echo \"end_time=\$(date '+%Y-%m-%d %H:%M:%S')\" >> $RESULTS_DIR/metadata.txt; sed -i 's/status=running/status=completed/' $RESULTS_DIR/metadata.txt"
+    fi
 
     # 发送命令
     send_command "$SESSION_NAME:$WINDOW_NAME" "$bench_cmd"
@@ -234,7 +240,7 @@ Tmux Bench Service - 性能基准测试服务
     $0 <command> [args...]
 
 命令:
-    start [suite]   启动基准测试 (套件: all, core, api, db, ...)
+    start [suite]   启动基准测试
     stop            停止测试
     status          查看状态
     logs [N]        查看日志 (默认 50 行)
@@ -242,13 +248,38 @@ Tmux Bench Service - 性能基准测试服务
     result          查看结果摘要
     clean           清理结果
 
+可用套件:
+    all             运行所有 SDK 基准测试
+    web             运行 Web 应用基准测试 (Playwright)
+    computation     运行 computation SDK 基准测试
+    data            运行 data SDK 基准测试
+    ...             其他 SDK 域
+
 示例:
-    $0 start              # 运行所有基准测试
-    $0 start core         # 只测试 core 模块
+    $0 start              # 运行所有 SDK 基准测试
+    $0 start web          # 运行 Web 应用基准测试
+    $0 start computation  # 测试 computation SDK
     $0 status             # 查看测试状态
     $0 logs 100           # 查看最后 100 行日志
 
 EOF
+}
+
+# 重启测试 (停止后重新启动)
+restart_bench() {
+    local suite="${1:-all}"
+
+    check_tmux
+
+    # 如果会话存在，先停止
+    if session_exists "$SESSION_NAME"; then
+        log_info "停止现有基准测试会话..."
+        stop_bench
+        sleep 1
+    fi
+
+    # 启动新测试
+    start_bench "$suite"
 }
 
 # 主入口
@@ -258,6 +289,7 @@ main() {
 
     case "$command" in
         start)   start_bench "$@" ;;
+        restart) restart_bench "$@" ;;
         idle)    idle_bench ;;
         stop)    stop_bench ;;
         status)  status_bench ;;

@@ -204,7 +204,7 @@ BENCH_SCRIPT="$SCRIPT_DIR/tmux-bench.sh"
 # ============================================
 
 handle_check() {
-    local action="${1:-status}"
+    local arg="${1:-}"
     shift || true
 
     if [ ! -f "$CHECK_SCRIPT" ]; then
@@ -212,7 +212,13 @@ handle_check() {
         return 1
     fi
 
-    exec "$CHECK_SCRIPT" "$action" "$@"
+    case "$arg" in
+        stop)   exec "$CHECK_SCRIPT" stop ;;
+        logs)   exec "$CHECK_SCRIPT" logs "$@" ;;
+        status) exec "$CHECK_SCRIPT" status ;;
+        "")     exec "$CHECK_SCRIPT" restart ;;
+        *)      exec "$CHECK_SCRIPT" restart "$arg" ;;
+    esac
 }
 
 # 保留旧的同步检查函数用于直接运行
@@ -234,7 +240,7 @@ run_check_sync() {
 # E2E 测试命令 (tmux 托管)
 # ============================================
 handle_e2e() {
-    local action="${1:-status}"
+    local arg="${1:-}"
     shift || true
 
     if [ ! -f "$E2E_SCRIPT" ]; then
@@ -242,14 +248,42 @@ handle_e2e() {
         return 1
     fi
 
-    exec "$E2E_SCRIPT" "$action" "$@"
+    case "$arg" in
+        stop)   exec "$E2E_SCRIPT" stop ;;
+        logs)   exec "$E2E_SCRIPT" logs "$@" ;;
+        status) exec "$E2E_SCRIPT" status ;;
+        attach) exec "$E2E_SCRIPT" attach ;;
+        result) exec "$E2E_SCRIPT" result ;;
+        clean)  exec "$E2E_SCRIPT" clean ;;
+        "")
+            # 无参数时显示帮助
+            echo "用法: univers dev e2e <模块|命令>"
+            echo ""
+            echo "运行测试:"
+            echo "  univers dev e2e web            运行 Web E2E 测试 (Playwright)"
+            echo "  univers dev e2e twin           运行 Digital Twin E2E 测试"
+            echo "  univers dev e2e organization   运行 Organization E2E 测试"
+            echo "  univers dev e2e <module>       运行指定模块 E2E 测试"
+            echo ""
+            echo "管理命令:"
+            echo "  univers dev e2e status         查看状态"
+            echo "  univers dev e2e logs           查看日志"
+            echo "  univers dev e2e stop           停止测试"
+            echo "  univers dev e2e attach         连接到会话"
+            echo ""
+            echo "可用模块: web, twin, organization, data, control, integration,"
+            echo "          hvac, resource, maintenance, intelligence, validation,"
+            echo "          computation, relation"
+            ;;
+        *)      exec "$E2E_SCRIPT" restart "$arg" ;;
+    esac
 }
 
 # ============================================
 # 基准测试命令 (tmux 托管)
 # ============================================
 handle_bench() {
-    local action="${1:-status}"
+    local arg="${1:-}"
     shift || true
 
     if [ ! -f "$BENCH_SCRIPT" ]; then
@@ -257,7 +291,33 @@ handle_bench() {
         return 1
     fi
 
-    exec "$BENCH_SCRIPT" "$action" "$@"
+    case "$arg" in
+        stop)   exec "$BENCH_SCRIPT" stop ;;
+        logs)   exec "$BENCH_SCRIPT" logs "$@" ;;
+        status) exec "$BENCH_SCRIPT" status ;;
+        attach) exec "$BENCH_SCRIPT" attach ;;
+        result) exec "$BENCH_SCRIPT" result ;;
+        clean)  exec "$BENCH_SCRIPT" clean ;;
+        "")
+            # 无参数时显示帮助
+            echo "用法: univers dev bench <套件|命令>"
+            echo ""
+            echo "运行测试:"
+            echo "  univers dev bench all          运行所有 SDK 基准测试"
+            echo "  univers dev bench web          运行 Web 应用基准测试"
+            echo "  univers dev bench <domain>     运行指定 SDK 域基准测试"
+            echo ""
+            echo "管理命令:"
+            echo "  univers dev bench status       查看状态"
+            echo "  univers dev bench logs         查看日志"
+            echo "  univers dev bench stop         停止测试"
+            echo "  univers dev bench attach       连接到会话"
+            echo ""
+            echo "可用套件: all, web, computation, data, fdd, integration,"
+            echo "          intelligence, optimization, relation, validation"
+            ;;
+        *)      exec "$BENCH_SCRIPT" restart "$arg" ;;
+    esac
 }
 
 run_validate() {
@@ -413,18 +473,14 @@ Univers Dev Manager - hvac-workbench 开发管理
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 QA 质量检查 (tmux 托管)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    check start [type]      后台启动检查 (all, rust, clippy, frontend)
-    check stop/status/logs/attach/result/clean
+    check [type]            运行检查 (all, rust, clippy, frontend)
+    check stop/logs
 
-    e2e start [module]      后台启动 E2E 测试 (all, twin, data, ...)
-    e2e stop/status/logs/attach/result/clean
+    e2e [module]            运行 E2E 测试 (all, twin, data, ...)
+    e2e stop/logs
 
-    bench start [suite]     后台启动基准测试
-    bench stop/status/logs/attach/result/clean
-
-    check-sync [type]       同步运行检查 (阻塞)
-    validate [type]         验证
-    clippy [mode]           Clippy 检查
+    bench [suite]           运行基准测试
+    bench stop/logs
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 数据库
