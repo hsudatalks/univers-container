@@ -1175,7 +1175,6 @@ agents_command() {
     esac
 }
 
-<<<<<<< HEAD
 # Agents tmux script
 AGENTS_SCRIPT="$HOME/repos/univers-container/.claude/skills/univers-core/ops/tmux-agents.sh"
 
@@ -1265,7 +1264,5 @@ agents_help() {
 AGENTS_HELP
 }
 
-=======
->>>>>>> 787574e (feat: Transform alert system into resource-centric management platform)
 # Run main function
 main "$@"
