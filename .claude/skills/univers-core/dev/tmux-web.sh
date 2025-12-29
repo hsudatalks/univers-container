@@ -28,7 +28,10 @@ fi
 
 # 配置
 SESSION_NAME="univers-web"
-WINDOW_NAME="web"
+# Dev server port
+DEV_PORT=3432
+# Preview server port (fixed)
+PREVIEW_PORT=4173
 # 解析符号链接获取真实脚本路径
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 if [ -L "$SCRIPT_PATH" ]; then
@@ -86,11 +89,12 @@ session_exists() {
     tmux has-session -t "$SESSION_NAME" 2>/dev/null
 }
 
-# 检查服务是否运行
+# 检查服务是否运行 (接受 pane 索引: 0=dev, 1=preview)
 is_service_running() {
+    local pane="${1:-0}"
     if session_exists; then
-        # 检查窗口中是否有进程在运行
-        local pane_pid=$(tmux list-panes -t "$SESSION_NAME:$WINDOW_NAME" -F "#{pane_pid}" 2>/dev/null | head -1)
+        # 检查指定 pane 中是否有进程在运行
+        local pane_pid=$(tmux list-panes -t "$SESSION_NAME:web.$pane" -F "#{pane_pid}" 2>/dev/null | head -1)
         if [ -n "$pane_pid" ]; then
             # 检查是否有子进程（实际的服务进程）
             if pgrep -P "$pane_pid" > /dev/null 2>&1; then
@@ -109,7 +113,7 @@ start_service() {
 
     if session_exists; then
         log_warning "会话 '$SESSION_NAME' 已存在"
-        if is_service_running; then
+        if is_service_running "0"; then
             log_info "Web服务似乎正在运行"
             echo ""
             echo "使用以下命令:"
@@ -124,26 +128,18 @@ start_service() {
     fi
 
     log_info "创建tmux会话: $SESSION_NAME"
+    log_info "启动 Dev Server (端口 $DEV_PORT) + Preview Server (端口 $PREVIEW_PORT)"
 
-    # 根据模式选择启动命令
-    local start_command
-    case "$mode" in
-        preview)
-            start_command="pnpm web:preview"
-            log_info "启动模式: 预览生产构建"
-            ;;
-        *)
-            start_command="pnpm web:dev"
-            log_info "启动模式: 开发环境 (Vite + HMR)"
-            ;;
-    esac
+    # 创建tmux会话，单窗口分屏模式
+    tmux new-session -d -s "$SESSION_NAME" -n "web" -c "$PROJECT_ROOT" zsh
 
-    # 创建tmux会话并启动服务（使用 bash）
-    tmux new-session -d -s "$SESSION_NAME" -n "$WINDOW_NAME" -c "$PROJECT_ROOT" zsh
-
-    # 设置tmux选项（会话级别，非全局）
+    # 设置tmux选项（会话级别，非全局）- 在 split 前设置确保 pane-base-index 生效
     tmux set-option -t "$SESSION_NAME" base-index 0
+    tmux set-window-option -t "$SESSION_NAME:web" pane-base-index 0
     tmux set-option -t "$SESSION_NAME" remain-on-exit off
+
+    # 水平分屏：左边 dev，右边 preview
+    tmux split-window -h -t "$SESSION_NAME:web" -c "$PROJECT_ROOT/apps/univers-ark-web" zsh
     # 完全禁用鼠标 - 防止鼠标事件导致 Vite 崩溃
     tmux set-option -t "$SESSION_NAME" mouse off
 
@@ -160,11 +156,10 @@ start_service() {
             if [[ "$line" =~ ^(setw|set-window-option) ]]; then
                 # Replace PROJECT_ROOT placeholder with actual path
                 line="${line//__PROJECT_ROOT__/$PROJECT_ROOT}"
-                # For window options, add -t flag after setw/set-window-option
                 if [[ "$line" =~ ^setw ]]; then
-                    cmd="setw -t $SESSION_NAME:$WINDOW_NAME ${line#setw }"
+                    cmd="setw -t $SESSION_NAME:web ${line#setw }"
                 else
-                    cmd="${line/set-window-option/set-window-option -t $SESSION_NAME:$WINDOW_NAME}"
+                    cmd="${line/set-window-option/set-window-option -t $SESSION_NAME:web}"
                 fi
                 eval "tmux $cmd" 2>/dev/null || true
             elif [[ "$line" =~ ^set-option ]]; then
@@ -183,20 +178,30 @@ start_service() {
         log_warning "状态栏配置文件不存在: $statusbar_config"
     fi
 
-    # 确保在正确的目录，然后运行服务
-    tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" "cd '$PROJECT_ROOT'" C-m
-    sleep 0.5
-    # 使用 || true 忽略退出码，保持shell活跃
-    # 即使pnpm返回错误，Vite进程也会继续在后台运行
-    tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" "$start_command || true" C-m
+    # 左边 pane (pane 0): Dev Server
+    tmux send-keys -t "$SESSION_NAME:web.0" "cd '$PROJECT_ROOT'" C-m
+    sleep 0.3
+    tmux send-keys -t "$SESSION_NAME:web.0" "pnpm web:dev || true" C-m
+
+    # 右边 pane (pane 1): Preview Server (先 build 再 preview)
+    tmux send-keys -t "$SESSION_NAME:web.1" "cd '$PROJECT_ROOT/apps/univers-ark-web'" C-m
+    sleep 0.3
+    # 延迟启动 preview，等待 build 完成
+    tmux send-keys -t "$SESSION_NAME:web.1" "echo '等待构建...' && sleep 5 && pnpm build && pnpm preview --host 0.0.0.0 --port $PREVIEW_PORT || true" C-m
+
+    # 选中左边 pane (dev)
+    tmux select-pane -t "$SESSION_NAME:web.0"
 
     log_success "Web服务已在tmux会话中启动"
     echo ""
+    echo "  Dev Server:     http://localhost:$DEV_PORT"
+    echo "  Preview Server: http://localhost:$PREVIEW_PORT (构建中...)"
+    echo ""
     echo "使用以下命令:"
-    echo "  $0 attach   - 连接到会话 (按 Ctrl+B 然后 D 退出)"
-    echo "  $0 logs     - 查看日志"
-    echo "  $0 stop     - 停止服务"
-    echo "  $0 status   - 查看状态"
+    echo "  $0 attach          - 连接到会话 (按 Ctrl+B 然后 D 退出)"
+    echo "  $0 logs [dev|preview] - 查看日志"
+    echo "  $0 stop            - 停止服务"
+    echo "  $0 status          - 查看状态"
     echo ""
 
     # 等待几秒让服务启动
@@ -218,8 +223,9 @@ stop_service() {
 
     log_info "停止Web服务..."
 
-    # 发送Ctrl+C停止服务
-    tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" C-c
+    # 发送 Ctrl+C 停止两个 pane 中的服务
+    tmux send-keys -t "$SESSION_NAME:web.0" C-c 2>/dev/null || true
+    tmux send-keys -t "$SESSION_NAME:web.1" C-c 2>/dev/null || true
 
     # 等待进程结束
     sleep 2
@@ -253,7 +259,14 @@ attach_service() {
 
 # 显示日志
 show_logs() {
-    local lines="${1:-50}"
+    local target="${1:-dev}"
+    local lines="${2:-50}"
+
+    # 如果第一个参数是数字，则作为行数处理
+    if [[ "$target" =~ ^[0-9]+$ ]]; then
+        lines="$target"
+        target="dev"
+    fi
 
     check_tmux
 
@@ -262,11 +275,19 @@ show_logs() {
         return 1
     fi
 
-    log_info "最近 $lines 行日志:"
+    # 现在使用单窗口双 pane 布局: pane 0 = dev, pane 1 = preview
+    local pane
+    case "$target" in
+        dev)     pane="0" ;;
+        preview) pane="1" ;;
+        *)       pane="0" ;;
+    esac
+
+    log_info "[$target] 最近 $lines 行日志:"
     echo ""
 
-    # 捕获tmux窗口内容
-    tmux capture-pane -t "$SESSION_NAME:$WINDOW_NAME" -p -S -$lines
+    # 捕获 pane 内容
+    tmux capture-pane -t "$SESSION_NAME:web.$pane" -p -S -$lines
 }
 
 # 实时查看日志
@@ -282,10 +303,10 @@ tail_logs() {
     echo ""
     sleep 1
 
-    # 使用tmux的pipe-pane功能实时显示输出
+    # 使用tmux的pipe-pane功能实时显示输出 (默认显示 dev pane)
     while true; do
         clear
-        tmux capture-pane -t "$SESSION_NAME:$WINDOW_NAME" -p -S -50
+        tmux capture-pane -t "$SESSION_NAME:web.0" -p -S -50
         sleep 2
     done
 }
@@ -295,32 +316,43 @@ show_status() {
     check_tmux
 
     echo "═══════════════════════════════════════════════════════════"
-    echo "  Univers Web Status (Vite Dev Server)"
+    echo "  Univers Web Status (Dev + Preview Servers)"
     echo "═══════════════════════════════════════════════════════════"
     echo ""
 
     if session_exists; then
         log_success "Tmux会话: 运行中"
         echo "  会话名: $SESSION_NAME"
-        echo "  窗口名: $WINDOW_NAME"
+        echo ""
 
-        if is_service_running; then
-            log_success "Web服务: 运行中"
-
-            # 尝试检查端口
-            if command -v netstat &> /dev/null; then
-                echo ""
-                echo "监听端口:"
-                netstat -tuln | grep -E ":(5173|4173)" || echo "  未检测到Vite端口 (5173/4173)"
-            fi
+        # Dev Server 状态 (pane 0)
+        echo "Dev Server (端口 $DEV_PORT):"
+        if is_service_running "0"; then
+            log_success "  状态: 运行中"
         else
-            log_warning "Web服务: 未运行"
+            log_warning "  状态: 未运行"
+        fi
+
+        # Preview Server 状态 (pane 1)
+        echo ""
+        echo "Preview Server (端口 $PREVIEW_PORT):"
+        if is_service_running "1"; then
+            log_success "  状态: 运行中"
+        else
+            log_warning "  状态: 未运行"
+        fi
+
+        # 尝试检查端口
+        if command -v ss &> /dev/null; then
+            echo ""
+            echo "监听端口:"
+            ss -tlnp 2>/dev/null | grep -E ":($DEV_PORT|$PREVIEW_PORT)" | awk '{print "  " $4}' || echo "  未检测到端口"
         fi
 
         # 显示会话信息
         echo ""
-        echo "Tmux会话信息:"
-        tmux list-sessions | grep "$SESSION_NAME" || true
+        echo "Tmux窗口:"
+        tmux list-windows -t "$SESSION_NAME" -F "  #{window_index}: #{window_name}" 2>/dev/null || true
 
     else
         log_warning "Tmux会话: 未运行"
@@ -345,35 +377,35 @@ restart_service() {
 # 显示帮助
 show_help() {
     cat << EOF
-Univers Web Tmux Manager (Vite Dev Server)
+Univers Web Tmux Manager (Dev + Preview Servers)
 
 用法:
   $0 <command> [options]
 
 命令:
-  start [mode]    启动Web服务 (默认dev模式)
-                  模式: dev, preview
+  start           启动Web服务 (同时启动 Dev + Preview)
   stop            停止Web服务
-  restart [mode]  重启Web服务
+  restart         重启Web服务
   attach          连接到会话
-  logs [lines]    显示最近的日志 (默认50行)
+  logs [target] [lines]   显示日志 (target: dev|preview, 默认dev)
   tail            实时查看日志
   status          显示服务状态
   help            显示此帮助信息
 
-启动模式:
-  dev             开发环境 (Vite + HMR)
-  preview         预览生产构建
+服务端口:
+  Dev Server:     http://localhost:$DEV_PORT (快速热更新，适合本地开发)
+  Preview Server: http://localhost:$PREVIEW_PORT (打包后，适合远程访问)
 
 示例:
-  # 启动Web服务 (开发模式)
+  # 启动Web服务
   $0 start
 
-  # 启动Web服务 (预览模式)
-  $0 start preview
-
-  # 查看日志
+  # 查看 dev 日志
   $0 logs
+  $0 logs dev 100
+
+  # 查看 preview 日志
+  $0 logs preview
 
   # 连接到会话
   $0 attach
@@ -386,15 +418,15 @@ Univers Web Tmux Manager (Vite Dev Server)
 
 Tmux快捷键:
   Ctrl+B D        退出会话 (服务继续运行)
+  Ctrl+B n/p      切换窗口 (dev/preview)
   Ctrl+B [        进入滚动模式 (q退出)
   Ctrl+B ?        显示所有快捷键
 
 提示:
-  - Web服务在tmux后台运行，关闭终端也不会停止
-  - 使用 'attach' 命令查看实时输出
-  - 使用 'logs' 命令查看历史日志
-  - Vite开发服务器通常在 http://localhost:5173 访问
-  - 预览服务器通常在 http://localhost:4173 访问
+  - start 会同时启动 Dev Server 和 Preview Server
+  - Dev Server 适合本地开发（HMR 热更新快）
+  - Preview Server 适合远程访问（打包后加载快，端口固定）
+  - 通过 Tailscale 访问推荐用 Preview Server
 
 EOF
 }
