@@ -29,6 +29,14 @@ fi
 # 配置
 SESSION_NAME="univers-server"
 WINDOW_NAME="server"
+# SurrealDB 配置
+SURREALDB_SESSION="univers-surrealdb"
+SURREALDB_PORT=8000
+SURREALDB_USER="root"
+SURREALDB_PASS="root"
+SURREALDB_DATA_DIR="$HOME/.univers/db"
+SURREALDB_DATA_FILE="$SURREALDB_DATA_DIR/univers-ark.db"
+
 # 解析符号链接获取真实脚本路径
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 if [ -L "$SCRIPT_PATH" ]; then
@@ -101,11 +109,229 @@ is_server_running() {
     return 1
 }
 
+# ============================================================================
+# SurrealDB 管理函数
+# ============================================================================
+
+# 检查 SurrealDB 是否已安装
+check_surrealdb_installed() {
+    # 检查默认安装路径
+    if [ -f "$HOME/.surrealdb/surreal" ]; then
+        export PATH="$HOME/.surrealdb:$PATH"
+    fi
+    if command -v surreal &> /dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+# 获取 SurrealDB 版本
+get_surrealdb_version() {
+    if check_surrealdb_installed; then
+        surreal version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
+    fi
+}
+
+# 检查端口是否被占用
+is_port_in_use() {
+    local port="$1"
+    if command -v lsof &> /dev/null; then
+        lsof -i ":$port" -sTCP:LISTEN &> /dev/null
+    elif command -v netstat &> /dev/null; then
+        netstat -tuln | grep -q ":$port "
+    elif command -v ss &> /dev/null; then
+        ss -tuln | grep -q ":$port "
+    else
+        # 尝试连接端口
+        (echo > /dev/tcp/localhost/$port) 2>/dev/null
+    fi
+}
+
+# 检查 SurrealDB 健康状态
+check_surrealdb_health() {
+    local max_attempts="${1:-5}"
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if curl -s "http://localhost:$SURREALDB_PORT/health" > /dev/null 2>&1; then
+            return 0
+        fi
+        sleep 1
+        ((attempt++))
+    done
+    return 1
+}
+
+# 检查 SurrealDB 会话是否存在
+surrealdb_session_exists() {
+    tmux has-session -t "$SURREALDB_SESSION" 2>/dev/null
+}
+
+# 安装 SurrealDB
+install_surrealdb() {
+    log_info "📦 正在安装 SurrealDB..."
+
+    local os_type=""
+    case "$(uname -s)" in
+        Linux*)  os_type="linux";;
+        Darwin*) os_type="macos";;
+        *)       log_error "不支持的操作系统"; return 1;;
+    esac
+
+    if [ "$os_type" = "macos" ]; then
+        # macOS: 使用 Homebrew
+        if command -v brew &> /dev/null; then
+            log_info "使用 Homebrew 安装..."
+            brew install surrealdb/tap/surreal
+        else
+            # 使用官方脚本作为备选
+            log_info "使用官方安装脚本..."
+            curl -sSf https://install.surrealdb.com | sh
+        fi
+    else
+        # Linux: 使用官方脚本
+        log_info "使用官方安装脚本..."
+        curl -sSf https://install.surrealdb.com | sh
+    fi
+
+    # 确保在 PATH 中
+    if [ -f "$HOME/.surrealdb/surreal" ]; then
+        export PATH="$HOME/.surrealdb:$PATH"
+    fi
+
+    # 验证安装
+    if check_surrealdb_installed; then
+        local version=$(get_surrealdb_version)
+        log_success "SurrealDB $version 安装成功"
+        return 0
+    else
+        log_error "SurrealDB 安装失败"
+        return 1
+    fi
+}
+
+# 启动 SurrealDB
+start_surrealdb() {
+    log_info "🗄️  检查 SurrealDB 状态..."
+
+    # 检查是否已安装
+    if ! check_surrealdb_installed; then
+        log_warning "SurrealDB 未安装，正在自动安装..."
+        if ! install_surrealdb; then
+            log_error "无法安装 SurrealDB"
+            log_info "💡 手动安装: curl -sSf https://install.surrealdb.com | sh"
+            return 1
+        fi
+    fi
+
+    # 检查是否已在运行
+    if is_port_in_use "$SURREALDB_PORT"; then
+        if check_surrealdb_health 3; then
+            local version=$(get_surrealdb_version)
+            log_success "SurrealDB $version 已在端口 $SURREALDB_PORT 运行"
+            return 0
+        else
+            log_warning "端口 $SURREALDB_PORT 被占用但非 SurrealDB"
+            return 1
+        fi
+    fi
+
+    # 确保数据目录存在
+    if [ ! -d "$SURREALDB_DATA_DIR" ]; then
+        mkdir -p "$SURREALDB_DATA_DIR"
+        log_info "📁 创建数据目录: $SURREALDB_DATA_DIR"
+    fi
+
+    log_info "🚀 启动 SurrealDB (文件模式)..."
+    log_info "   📍 数据文件: $SURREALDB_DATA_FILE"
+    log_info "   🌐 端口: $SURREALDB_PORT"
+    log_info "   👤 用户: $SURREALDB_USER"
+
+    # 在 tmux 会话中启动 SurrealDB
+    if surrealdb_session_exists; then
+        tmux kill-session -t "$SURREALDB_SESSION" 2>/dev/null || true
+    fi
+
+    # 确保 PATH 包含 SurrealDB
+    local surreal_cmd="surreal"
+    if [ -f "$HOME/.surrealdb/surreal" ]; then
+        surreal_cmd="$HOME/.surrealdb/surreal"
+    fi
+
+    tmux new-session -d -s "$SURREALDB_SESSION" -n "surrealdb" \
+        "$surreal_cmd start --user $SURREALDB_USER --pass $SURREALDB_PASS --bind 0.0.0.0:$SURREALDB_PORT file:$SURREALDB_DATA_FILE"
+
+    # 等待启动
+    log_info "⏳ 等待 SurrealDB 启动..."
+    if check_surrealdb_health 10; then
+        local version=$(get_surrealdb_version)
+        log_success "SurrealDB $version 启动成功"
+        return 0
+    else
+        log_error "SurrealDB 启动超时"
+        log_info "💡 查看日志: tmux attach -t $SURREALDB_SESSION"
+        return 1
+    fi
+}
+
+# 停止 SurrealDB
+stop_surrealdb() {
+    if surrealdb_session_exists; then
+        log_info "🛑 停止 SurrealDB..."
+        tmux kill-session -t "$SURREALDB_SESSION" 2>/dev/null || true
+        log_success "SurrealDB 已停止"
+    else
+        log_info "SurrealDB 未运行"
+    fi
+}
+
+# 显示 SurrealDB 状态
+show_surrealdb_status() {
+    echo ""
+    echo "  SurrealDB 状态:"
+
+    if check_surrealdb_installed; then
+        local version=$(get_surrealdb_version)
+        echo "    ✅ 已安装: v$version"
+    else
+        echo "    ❌ 未安装"
+        return
+    fi
+
+    if is_port_in_use "$SURREALDB_PORT"; then
+        if check_surrealdb_health 2; then
+            echo "    ✅ 运行中: http://localhost:$SURREALDB_PORT"
+            echo "    📍 数据文件: $SURREALDB_DATA_FILE"
+        else
+            echo "    ⚠️  端口占用但健康检查失败"
+        fi
+    else
+        echo "    ⏹️  未运行"
+    fi
+
+    if surrealdb_session_exists; then
+        echo "    📺 Tmux 会话: $SURREALDB_SESSION"
+    fi
+}
+
+# ============================================================================
+
 # 启动服务器
 start_server() {
     local mode="${1:-default}"
+    local skip_db="${2:-false}"
 
     check_tmux
+
+    # 除非明确跳过，否则确保 SurrealDB 运行
+    if [ "$skip_db" != "true" ] && [ "$skip_db" != "--memory" ]; then
+        if ! start_surrealdb; then
+            log_error "无法启动 SurrealDB，服务器启动已取消"
+            log_info "💡 使用 --memory 参数可跳过数据库启动（使用内存模式）"
+            return 1
+        fi
+        echo ""
+    fi
 
     if session_exists; then
         log_warning "会话 '$SESSION_NAME' 已存在"
@@ -332,39 +558,37 @@ show_status() {
     echo "═══════════════════════════════════════════════════════════"
     echo "  Univers Server Status"
     echo "═══════════════════════════════════════════════════════════"
+
+    # SurrealDB 状态
+    show_surrealdb_status
+
     echo ""
+    echo "  Workbench Server 状态:"
 
     if session_exists; then
-        log_success "Tmux会话: 运行中"
-        echo "  会话名: $SESSION_NAME"
-        echo "  窗口名: $WINDOW_NAME"
+        echo "    ✅ Tmux 会话: $SESSION_NAME"
 
         if is_server_running; then
-            log_success "服务器: 运行中"
+            echo "    ✅ 服务器: 运行中"
 
             # 尝试检查端口
             if command -v netstat &> /dev/null; then
                 echo ""
-                echo "监听端口:"
-                netstat -tuln | grep -E ":(3000|3001|3002|3003|8000|8080)" || echo "  未检测到标准端口"
+                echo "  监听端口:"
+                netstat -tuln 2>/dev/null | grep -E ":(3000|3001|3002|3003|8000|8080)" | awk '{print "    " $4}' || echo "    未检测到标准端口"
             fi
 
             # 检查Socket文件
             if [ -e "/tmp/univers-server.sock" ]; then
-                log_success "Unix Socket: /tmp/univers-server.sock"
+                echo "    ✅ Unix Socket: /tmp/univers-server.sock"
             fi
         else
-            log_warning "服务器: 未运行"
+            echo "    ⏹️  服务器: 未运行"
         fi
 
-        # 显示会话信息
-        echo ""
-        echo "Tmux会话信息:"
-        tmux list-sessions | grep "$SESSION_NAME" || true
-
     else
-        log_warning "Tmux会话: 未运行"
-        log_warning "服务器: 未运行"
+        echo "    ⏹️  Tmux 会话: 未运行"
+        echo "    ⏹️  服务器: 未运行"
     fi
 
     echo ""
@@ -391,15 +615,22 @@ Univers Server Tmux Manager
   $0 <command> [options]
 
 命令:
-  start [mode]    启动服务器 (默认模式)
+  start [mode]    启动服务器 (自动启动 SurrealDB)
                   模式: default, socket, http, watch, release
   stop            停止服务器
   restart [mode]  重启服务器
   attach          连接到服务器会话
   logs [lines]    显示最近的日志 (默认50行)
   tail            实时查看日志
-  status          显示服务器状态
+  status          显示服务器和数据库状态
   help            显示此帮助信息
+
+SurrealDB 命令:
+  db-start        仅启动 SurrealDB
+  db-stop         停止 SurrealDB
+  db-status       查看 SurrealDB 状态
+  db-logs         查看 SurrealDB 日志
+  db-attach       连接到 SurrealDB 会话
 
 启动模式:
   default         HTTP + Socket (无热重载，推荐日常开发)
@@ -410,27 +641,24 @@ Univers Server Tmux Manager
 
 注意: 2025-11起，所有模式都启用 HTTP + Socket 双端点
 
+SurrealDB 配置:
+  数据目录:       $SURREALDB_DATA_DIR
+  数据文件:       $SURREALDB_DATA_FILE
+  端口:           $SURREALDB_PORT
+  用户:           $SURREALDB_USER
+
 示例:
-  # 启动服务器 (默认模式)
+  # 启动服务器 (自动启动 SurrealDB)
   $0 start
 
-  # 启动服务器 (HTTP + Socket - 所有模式相同)
-  $0 start socket   # 等同于 $0 start
+  # 仅启动 SurrealDB
+  $0 db-start
 
-  # 启动服务器 (生产模式)
-  $0 start release
-
-  # 查看日志
-  $0 logs
-
-  # 连接到服务器
-  $0 attach
-
-  # 查看状态
+  # 查看完整状态
   $0 status
 
-  # 停止服务器
-  $0 stop
+  # 停止所有服务
+  $0 stop && $0 db-stop
 
 Tmux快捷键:
   Ctrl+B D        退出会话 (服务器继续运行)
@@ -438,10 +666,9 @@ Tmux快捷键:
   Ctrl+B ?        显示所有快捷键
 
 提示:
+  - 服务器启动时会自动检查并启动 SurrealDB
+  - SurrealDB 使用文件模式，数据持久化到 ~/.univers/db/
   - 服务器在tmux后台运行，关闭终端也不会停止
-  - 使用 'attach' 命令查看实时输出
-  - 使用 'logs' 命令查看历史日志
-  - 使用 'tail' 命令实时跟踪日志
 
 EOF
 }
@@ -472,6 +699,30 @@ main() {
             ;;
         status)
             show_status
+            ;;
+        # SurrealDB 相关命令
+        db-start)
+            start_surrealdb
+            ;;
+        db-stop)
+            stop_surrealdb
+            ;;
+        db-status)
+            show_surrealdb_status
+            ;;
+        db-logs)
+            if surrealdb_session_exists; then
+                tmux capture-pane -t "$SURREALDB_SESSION:surrealdb" -p -S -50
+            else
+                log_warning "SurrealDB 会话不存在"
+            fi
+            ;;
+        db-attach)
+            if surrealdb_session_exists; then
+                tmux attach-session -t "$SURREALDB_SESSION"
+            else
+                log_warning "SurrealDB 会话不存在"
+            fi
             ;;
         help|--help|-h)
             show_help
