@@ -282,10 +282,10 @@ start_session() {
     # 均分 pane 高度
     tmux select-layout -t "$SESSION_NAME:svc" even-vertical
 
-    # 连接到各服务 (pane 1=top, 2=middle, 3=bottom)
-    tmux send-keys -t "$SESSION_NAME:svc.1" "unset TMUX && while true; do tmux attach-session -t univers-server 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:svc.2" "unset TMUX && while true; do tmux attach-session -t univers-agents 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:svc.3" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter
+    # 连接到各服务 (pane 0=top, 1=middle, 2=bottom)
+    tmux send-keys -t "$SESSION_NAME:svc.0" "unset TMUX && while true; do tmux attach-session -t univers-server 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:svc.1" "unset TMUX && while true; do tmux attach-session -t univers-agents 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:svc.2" "unset TMUX && while true; do tmux attach-session -t univers-web 2>/dev/null || sleep 5; done" Enter
 
     # ========================================
     # Window 5: qa - 质量检查监控 (3 panes)
@@ -301,10 +301,10 @@ start_session() {
     # 均分 pane 高度
     tmux select-layout -t "$SESSION_NAME:qa" even-vertical
 
-    # 连接到各 QA 服务 (pane 1=top, 2=middle, 3=bottom)
-    tmux send-keys -t "$SESSION_NAME:qa.1" "unset TMUX && while true; do tmux attach-session -t univers-check 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:qa.2" "unset TMUX && while true; do tmux attach-session -t univers-e2e 2>/dev/null || sleep 5; done" Enter
-    tmux send-keys -t "$SESSION_NAME:qa.3" "unset TMUX && while true; do tmux attach-session -t univers-bench 2>/dev/null || sleep 5; done" Enter
+    # 连接到各 QA 服务 (pane 0=top, 1=middle, 2=bottom)
+    tmux send-keys -t "$SESSION_NAME:qa.0" "unset TMUX && while true; do tmux attach-session -t univers-check 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:qa.1" "unset TMUX && while true; do tmux attach-session -t univers-e2e 2>/dev/null || sleep 5; done" Enter
+    tmux send-keys -t "$SESSION_NAME:qa.2" "unset TMUX && while true; do tmux attach-session -t univers-bench 2>/dev/null || sleep 5; done" Enter
 
     # ========================================
     # 加载状态栏配置

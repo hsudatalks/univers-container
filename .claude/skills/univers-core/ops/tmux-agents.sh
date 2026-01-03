@@ -9,7 +9,9 @@ set -e
 # ============================================
 # 加载核心库
 # ============================================
-UNIVERS_CORE="/home/davidxu/repos/univers-container/.claude/skills/univers-core/lib"
+# Dynamically determine UNIVERS_CORE based on script location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+UNIVERS_CORE="$(cd "$SCRIPT_DIR/../lib" && pwd)"
 source "$UNIVERS_CORE/common.sh"
 source "$UNIVERS_CORE/tmux-utils.sh"
 
