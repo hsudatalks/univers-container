@@ -241,14 +241,14 @@ start_session() {
     tmux set-option -t "$SESSION_NAME" mouse on
     tmux set-option -t "$SESSION_NAME" history-limit 50000
 
-    # 设置快捷键：Alt+数字 直接切换窗口
-    tmux bind-key -n M-1 select-window -t "$SESSION_NAME:1"
-    tmux bind-key -n M-2 select-window -t "$SESSION_NAME:2"
-    tmux bind-key -n M-3 select-window -t "$SESSION_NAME:3"
+    # 设置快捷键：Alt+数字 直接切换窗口（会话级别绑定）
+    tmux bind-key -t "$SESSION_NAME" -n M-1 select-window -t "$SESSION_NAME:1"
+    tmux bind-key -t "$SESSION_NAME" -n M-2 select-window -t "$SESSION_NAME:2"
+    tmux bind-key -t "$SESSION_NAME" -n M-3 select-window -t "$SESSION_NAME:3"
 
-    # 设置快捷键：Ctrl+H/L 切换窗口
-    tmux bind-key -n C-y previous-window
-    tmux bind-key -n C-u next-window
+    # 设置快捷键：Ctrl+Y/U 切换窗口（会话级别绑定）
+    tmux bind-key -t "$SESSION_NAME" -n C-y previous-window
+    tmux bind-key -t "$SESSION_NAME" -n C-u next-window
 
     # 检查实际创建的窗口大小
     local actual_width=$(tmux list-windows -t "$SESSION_NAME:workbench" -F "#{window_width}" | head -1)
