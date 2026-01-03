@@ -49,7 +49,7 @@ Commands:
 
   Tmux Management:
     tmux start [type]       - Start tmux sessions
-                             Types: desktop, mobile, both (default: both)
+                             Types: desktop, mobile, both, none (default: mobile)
     tmux stop               - Stop all tmux sessions
     tmux list              - List all tmux sessions
     tmux attach <session>  - Attach to tmux session
@@ -93,8 +93,9 @@ Resource Management:
 Examples:
   cm init                              # Full initialization
   cm init --skip-build                # Fast initialization (no build)
-  cm tmux start                        # Start both desktop and mobile views
-  cm tmux start mobile                 # Start only mobile-view
+  cm tmux start                        # Start mobile view (default)
+  cm tmux start desktop                # Start only desktop-view
+  cm tmux start both                   # Start both desktop and mobile views
   cm dev restart                       # Restart all univers-* sessions
   cm dev restart developer             # Restart univers-developer only
   cm dev restart core                  # Restart core development sessions
@@ -456,7 +457,7 @@ tmux_command() {
 
 # Start tmux sessions with optional view type
 tmux_start() {
-    local view_type="${1:-both}"  # desktop, mobile, or both
+    local view_type="${1:-mobile}"  # desktop, mobile, both, or none (default: mobile)
     local tmux_manager="$HOME/repos/univers-container/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
     
     if [ ! -f "$tmux_manager" ]; then

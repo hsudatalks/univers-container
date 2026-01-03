@@ -194,12 +194,8 @@ start_session() {
     check_tmux
 
     if session_exists; then
-        log_warning "会话 '$SESSION_NAME' 已存在"
-        log_info "使用以下命令:"
-        echo "  $0 attach   - 连接到会话"
-        echo "  $0 status   - 查看状态"
-        echo "  $0 stop     - 停止会话"
-        return 1
+        log_info "会话 '$SESSION_NAME' 已存在，跳过创建"
+        return 0
     fi
 
     log_view "创建 Desktop View 分屏会话: $SESSION_NAME"
