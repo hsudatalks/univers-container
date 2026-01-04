@@ -71,12 +71,12 @@ session_exists() {
     tmux has-session -t "$SESSION_NAME" 2>/dev/null
 }
 
-# 检查依赖会话是否运行
+# 检查依赖会话是否运行（使用默认 tmux 服务器）
 check_dependencies() {
     local missing=()
 
     for dep in univers-developer univers-server univers-ui univers-web univers-operator univers-manager; do
-        if ! tmux has-session -t "$dep" 2>/dev/null; then
+        if ! command tmux has-session -t "$dep" 2>/dev/null; then
             missing+=("$dep")
         fi
     done
@@ -96,10 +96,13 @@ auto_start_dependencies() {
     local started=()
     local failed=()
 
-    # 检查 univers-developer
-    if ! tmux has-session -t "univers-developer" 2>/dev/null; then
+    # 获取 univers-core 脚本目录
+    local CORE_DIR="$SKILL_DIR/../univers-core"
+
+    # 检查 univers-developer（使用默认 tmux 服务器）
+    if ! command tmux has-session -t "univers-developer" 2>/dev/null; then
         log_info "启动 univers-developer..."
-        local developer_script="$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-developer.sh"
+        local developer_script="$CORE_DIR/work/tmux-developer.sh"
         if [ -f "$developer_script" ]; then
             "$developer_script" start && started+=("univers-developer") || failed+=("univers-developer")
         else
@@ -109,9 +112,9 @@ auto_start_dependencies() {
     fi
 
     # 检查 univers-server
-    if ! tmux has-session -t "univers-server" 2>/dev/null; then
+    if ! command tmux has-session -t "univers-server" 2>/dev/null; then
         log_info "启动 univers-server..."
-        local server_script="$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-server.sh"
+        local server_script="$CORE_DIR/dev/tmux-server.sh"
         if [ -f "$server_script" ]; then
             "$server_script" start socket && started+=("univers-server") || failed+=("univers-server")
         else
@@ -121,9 +124,9 @@ auto_start_dependencies() {
     fi
 
     # 检查 univers-ui
-    if ! tmux has-session -t "univers-ui" 2>/dev/null; then
+    if ! command tmux has-session -t "univers-ui" 2>/dev/null; then
         log_info "启动 univers-ui..."
-        local ui_script="$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-ui.sh"
+        local ui_script="$CORE_DIR/dev/tmux-ui.sh"
         if [ -f "$ui_script" ]; then
             "$ui_script" start && started+=("univers-ui") || failed+=("univers-ui")
         else
@@ -133,9 +136,9 @@ auto_start_dependencies() {
     fi
 
     # 检查 univers-web
-    if ! tmux has-session -t "univers-web" 2>/dev/null; then
+    if ! command tmux has-session -t "univers-web" 2>/dev/null; then
         log_info "启动 univers-web..."
-        local web_script="$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-web.sh"
+        local web_script="$CORE_DIR/dev/tmux-web.sh"
         if [ -f "$web_script" ]; then
             "$web_script" start && started+=("univers-web") || failed+=("univers-web")
         else
@@ -145,22 +148,22 @@ auto_start_dependencies() {
     fi
 
     # 检查 univers-operator
-    if ! tmux has-session -t "univers-operator" 2>/dev/null; then
+    if ! command tmux has-session -t "univers-operator" 2>/dev/null; then
         log_info "启动 univers-operator..."
-        local operator_script="$PROJECT_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/univers-ops"
+        local operator_script="$CORE_DIR/work/tmux-operator.sh"
         if [ -f "$operator_script" ]; then
-            "$operator_script" operator start && started+=("univers-operator") || failed+=("univers-operator")
+            "$operator_script" start && started+=("univers-operator") || failed+=("univers-operator")
         else
-            log_warning "univers-ops 脚本未找到，跳过 univers-operator"
+            log_warning "univers-operator 脚本未找到，跳过"
             failed+=("univers-operator")
         fi
     fi
 
     # 检查 univers-manager
-    if ! tmux has-session -t "univers-manager" 2>/dev/null; then
+    if ! command tmux has-session -t "univers-manager" 2>/dev/null; then
         log_info "启动 univers-manager..."
         if command -v tmux-manager &> /dev/null; then
-            tmux-manager start none && started+=("univers-manager") || failed+=("univers-manager")
+            command tmux-manager start none && started+=("univers-manager") || failed+=("univers-manager")
         else
             log_warning "tmux-manager 命令未找到，跳过 univers-manager"
             failed+=("univers-manager")
