@@ -9,8 +9,11 @@ set -e
 # 配置
 SESSION_NAME="container-mobile-view"
 TMUX_SERVER="container"  # 使用独立的 tmux 服务器实例
-# 所有 tmux 命令默认使用 -L $TMUX_SERVER
-alias tmux="tmux -L $TMUX_SERVER"
+
+# 创建 tmux 包装函数，使用独立的容器服务器实例
+tmux() {
+    command tmux -L "$TMUX_SERVER" "$@"
+}
 
 # 解析符号链接获取真实脚本路径
 SCRIPT_PATH="${BASH_SOURCE[0]}"
