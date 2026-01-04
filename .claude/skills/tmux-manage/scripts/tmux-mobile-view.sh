@@ -8,6 +8,10 @@ set -e
 
 # 配置
 SESSION_NAME="container-mobile-view"
+TMUX_SERVER="container"  # 使用独立的 tmux 服务器实例
+# 所有 tmux 命令默认使用 -L $TMUX_SERVER
+alias tmux="tmux -L $TMUX_SERVER"
+
 # 解析符号链接获取真实脚本路径
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 if [ -L "$SCRIPT_PATH" ]; then
@@ -244,7 +248,7 @@ start_session() {
     tmux bind-key -n M-4 select-window -t "$SESSION_NAME:4"
     tmux bind-key -n M-5 select-window -t "$SESSION_NAME:5"
 
-    # 设置快捷键：Ctrl+Y/U 切换窗口
+    # 设置快捷键：Ctrl+Y/U 切换窗口（用于 container view）
     tmux bind-key -n C-y previous-window
     tmux bind-key -n C-u next-window
 
