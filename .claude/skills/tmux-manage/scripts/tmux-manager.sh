@@ -113,7 +113,7 @@ start_base_services() {
         "univers-developer:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/work/tmux-developer.sh:start"
         "univers-server:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-server.sh:start socket"
         "univers-web:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-web.sh:start"
-        "univers-operator:$PROJECT_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/univers-ops:operator start"
+        "univers-operator:$PROJECT_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/tmux-operator.sh:start"
         "univers-agents:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/ops/tmux-agents.sh:start"
         "univers-check:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-check.sh:idle"
         "univers-e2e:$PROJECT_ROOT/univers-container/.claude/skills/univers-core/dev/tmux-e2e.sh:idle"
@@ -176,8 +176,8 @@ start_view_if_needed() {
     local view_session="$2"
     local view_command="$3"
 
-    # 检查视图会话是否已存在
-    if tmux has-session -t "$view_session" 2>/dev/null; then
+    # 检查视图会话是否已存在（检查默认服务器和container服务器）
+    if tmux has-session -t "$view_session" 2>/dev/null || tmux -L container has-session -t "$view_session" 2>/dev/null; then
         log_info "$view_name 会话已存在，跳过启动"
         return 0
     fi
@@ -198,8 +198,8 @@ start_view_if_needed() {
     # 给视图一点时间启动
     sleep 0.3
 
-    # 验证会话是否真的创建了
-    if tmux has-session -t "$view_session" 2>/dev/null; then
+    # 验证会话是否真的创建了（检查两种服务器）
+    if tmux has-session -t "$view_session" 2>/dev/null || tmux -L container has-session -t "$view_session" 2>/dev/null; then
         log_success "$view_name 启动成功"
         return 0
     else

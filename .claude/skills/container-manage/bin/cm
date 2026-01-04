@@ -647,42 +647,58 @@ dev_get_base_path() {
     exit 1
 }
 
-# Define all available univers sessions
-declare -A UNIVERS_SESSIONS=(
-    ["developer"]="tmux-developer.sh"
-    ["server"]="tmux-server.sh"
-    ["ui"]="tmux-ui.sh"
-    ["web"]="tmux-web.sh"
-    ["desktop-dev"]="tmux-desktop-dev.sh"
-    ["mobile-dev"]="tmux-mobile-dev.sh"
-)
+# Define all available univers sessions (Bash 3.2 compatible)
+# Using prefix arrays to simulate associative arrays
+UNIVERS_SESSIONS_KEYS=("developer" "server" "ui" "web" "desktop-dev" "mobile-dev")
+UNIVERS_SESSIONS_VALUES=("tmux-developer.sh" "tmux-server.sh" "tmux-ui.sh" "tmux-web.sh" "tmux-desktop-dev.sh" "tmux-mobile-dev.sh")
 
-# Define session categories
-declare -A SESSION_CATEGORIES=(
-    ["core"]="server ui web"
-    ["dev-views"]="desktop-dev mobile-dev"
-    ["all"]="developer server ui web desktop-dev mobile-dev"
-)
+# Helper function to get session script name
+get_session_script_name() {
+    local key="$1"
+    for i in "${!UNIVERS_SESSIONS_KEYS[@]}"; do
+        if [[ "${UNIVERS_SESSIONS_KEYS[$i]}" == "$key" ]]; then
+            echo "${UNIVERS_SESSIONS_VALUES[$i]}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Define session categories (Bash 3.2 compatible)
+SESSION_CATEGORIES_KEYS=("core" "dev-views" "all")
+SESSION_CATEGORIES_VALUES=("server ui web" "desktop-dev mobile-dev" "developer server ui web desktop-dev mobile-dev")
+
+# Helper function to get session category
+get_session_category() {
+    local key="$1"
+    for i in "${!SESSION_CATEGORIES_KEYS[@]}"; do
+        if [[ "${SESSION_CATEGORIES_KEYS[$i]}" == "$key" ]]; then
+            echo "${SESSION_CATEGORIES_VALUES[$i]}"
+            return 0
+        fi
+    done
+    return 1
+}
 
 # Get session script path
 dev_get_session_script() {
     local session_name="$1"
     local base_path=$(dev_get_base_path)
-    local script_name="${UNIVERS_SESSIONS[$session_name]}"
-    
+    local script_name=$(get_session_script_name "$session_name")
+
     if [ -z "$script_name" ]; then
         echo -e "${RED}Error: Unknown session '$session_name'${NC}"
         echo -e "${YELLOW}Available sessions:${NC}"
         dev_list_sessions
         exit 1
     fi
-    
+
     local script_path="$base_path/$script_name"
     if [ ! -f "$script_path" ]; then
         echo -e "${RED}Error: Script not found: $script_path${NC}"
         exit 1
     fi
-    
+
     echo "$script_path"
 }
 
@@ -797,7 +813,7 @@ dev_restart() {
             echo -e "${CYAN}  🔄 Restarting All Univers Sessions${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
             echo ""
-            restart_sessions "${SESSION_CATEGORIES[all]}"
+            restart_sessions "$(get_session_category "all")"
             ;;
         "developer")
             restart_session "developer"
@@ -808,7 +824,7 @@ dev_restart() {
             echo -e "${CYAN}  🔄 Restarting Core Development Sessions${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
             echo ""
-            restart_sessions "${SESSION_CATEGORIES[core]}"
+            restart_sessions "$(get_session_category "core")"
             ;;
         "dev-views")
             echo ""
@@ -816,11 +832,11 @@ dev_restart() {
             echo -e "${CYAN}  🔄 Restarting Development View Sessions${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
             echo ""
-            restart_sessions "${SESSION_CATEGORIES[dev-views]}"
+            restart_sessions "$(get_session_category "dev-views")"
             ;;
         *)
             # Specific session name
-            if [[ -n "${UNIVERS_SESSIONS[$target]}" ]]; then
+            if get_session_script_name "$target" >/dev/null 2>&1; then
                 restart_session "$target"
             else
                 echo -e "${RED}Error: Unknown target '$target'${NC}"
@@ -843,7 +859,7 @@ dev_start() {
             echo -e "${CYAN}  🚀 Starting All Univers Sessions${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
             echo ""
-            start_sessions "${SESSION_CATEGORIES[all]}"
+            start_sessions "$(get_session_category "all")"
             ;;
         "developer")
             start_session "developer"
@@ -854,7 +870,7 @@ dev_start() {
             echo -e "${CYAN}  🚀 Starting Core Development Sessions${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
             echo ""
-            start_sessions "${SESSION_CATEGORIES[core]}"
+            start_sessions "$(get_session_category "core")"
             ;;
         "dev-views")
             echo ""
@@ -862,11 +878,11 @@ dev_start() {
             echo -e "${CYAN}  🚀 Starting Development View Sessions${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
             echo ""
-            start_sessions "${SESSION_CATEGORIES[dev-views]}"
+            start_sessions "$(get_session_category "dev-views")"
             ;;
         *)
             # Specific session name
-            if [[ -n "${UNIVERS_SESSIONS[$target]}" ]]; then
+            if get_session_script_name "$target" >/dev/null 2>&1; then
                 start_session "$target"
             else
                 echo -e "${RED}Error: Unknown target '$target'${NC}"
@@ -889,7 +905,7 @@ dev_stop() {
             echo -e "${CYAN}  🛑 Stopping All Univers Sessions${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
             echo ""
-            stop_sessions "${SESSION_CATEGORIES[all]}"
+            stop_sessions "$(get_session_category "all")"
             ;;
         "developer")
             stop_session "developer"
@@ -900,7 +916,7 @@ dev_stop() {
             echo -e "${CYAN}  🛑 Stopping Core Development Sessions${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
             echo ""
-            stop_sessions "${SESSION_CATEGORIES[core]}"
+            stop_sessions "$(get_session_category "core")"
             ;;
         "dev-views")
             echo ""
@@ -908,11 +924,11 @@ dev_stop() {
             echo -e "${CYAN}  🛑 Stopping Development View Sessions${NC}"
             echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
             echo ""
-            stop_sessions "${SESSION_CATEGORIES[dev-views]}"
+            stop_sessions "$(get_session_category "dev-views")"
             ;;
         *)
             # Specific session name
-            if [[ -n "${UNIVERS_SESSIONS[$target]}" ]]; then
+            if get_session_script_name "$target" >/dev/null 2>&1; then
                 stop_session "$target"
             else
                 echo -e "${RED}Error: Unknown target '$target'${NC}"
@@ -927,33 +943,33 @@ dev_stop() {
 # Show univers-developer session status
 dev_status() {
     local base_path=$(dev_get_base_path)
-    
+
     echo ""
     echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
     echo -e "${CYAN}  📊 Univers Developer Session Status${NC}"
     echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
     echo ""
-    
+
     # Show categorized status
     echo -e "${MAGENTA}Core Development Sessions:${NC}"
-    for session in ${SESSION_CATEGORIES[core]}; do
+    for session in $(get_session_category "core"); do
         if session_exists "univers-$session"; then
             echo -e "  ${GREEN}✅ univers-$session${NC} - Running"
         else
             echo -e "  ${RED}❌ univers-$session${NC} - Stopped"
         fi
     done
-    
+
     echo ""
     echo -e "${BLUE}Development View Sessions:${NC}"
-    for session in ${SESSION_CATEGORIES[dev-views]}; do
+    for session in $(get_session_category "dev-views"); do
         if session_exists "univers-$session"; then
             echo -e "  ${GREEN}✅ univers-$session${NC} - Running"
         else
             echo -e "  ${RED}❌ univers-$session${NC} - Stopped"
         fi
     done
-    
+
     echo ""
     echo -e "${CYAN}Developer Session:${NC}"
     if session_exists "univers-developer"; then
@@ -961,7 +977,7 @@ dev_status() {
     else
         echo -e "  ${RED}❌ univers-developer${NC} - Stopped"
     fi
-    
+
     echo ""
     echo -e "${YELLOW}Usage Tips:${NC}"
     echo "  - Use 'cm dev restart' to restart all sessions"
@@ -979,13 +995,13 @@ dev_list() {
     echo ""
     
     echo -e "${MAGENTA}Core Development Sessions:${NC}"
-    for session in ${SESSION_CATEGORIES[core]}; do
+    for session in $(get_session_category "core"); do
         echo "  - univers-$session"
     done
-    
+
     echo ""
     echo -e "${BLUE}Development View Sessions:${NC}"
-    for session in ${SESSION_CATEGORIES[dev-views]}; do
+    for session in $(get_session_category "dev-views"); do
         echo "  - univers-$session"
     done
     

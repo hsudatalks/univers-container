@@ -41,30 +41,40 @@ echo ""
 
 # Install commands (use symlinks for easier updates)
 echo "📦 Installing tmux management commands..."
-SUDO_CMD=""
-if [ ! -w /usr/local/bin ]; then
-    echo -e "${YELLOW}⚠️  /usr/local/bin is not writable, will use sudo${NC}"
-    SUDO_CMD="sudo"
+
+# Use ~/.local/bin for user-local installations (no sudo required)
+LOCAL_BIN_DIR="$HOME/.local/bin"
+mkdir -p "$LOCAL_BIN_DIR"
+
+# Check if ~/.local/bin is in PATH
+if [[ ":$PATH:" != *":$LOCAL_BIN_DIR:"* ]]; then
+    echo -e "${YELLOW}⚠️  $LOCAL_BIN_DIR is not in your PATH!${NC}"
+    echo -e "${YELLOW}   Add this to your ~/.bashrc or ~/.zshrc:${NC}"
+    echo -e "${YELLOW}   export PATH=\"$LOCAL_BIN_DIR:\$PATH\"${NC}"
 fi
 
-# Remove old installations
-$SUDO_CMD rm -f /usr/local/bin/tmux-manager
-$SUDO_CMD rm -f /usr/local/bin/tmux-desktop-view
-$SUDO_CMD rm -f /usr/local/bin/tmux-mobile-view
-$SUDO_CMD rm -f /usr/local/bin/tmux-monitor
+# Remove old installations (from both old and new locations)
+rm -f /usr/local/bin/tmux-manager 2>/dev/null || true
+rm -f /usr/local/bin/tmux-desktop-view 2>/dev/null || true
+rm -f /usr/local/bin/tmux-mobile-view 2>/dev/null || true
+rm -f /usr/local/bin/tmux-monitor 2>/dev/null || true
+rm -f "$LOCAL_BIN_DIR"/tmux-manager
+rm -f "$LOCAL_BIN_DIR"/tmux-desktop-view
+rm -f "$LOCAL_BIN_DIR"/tmux-mobile-view
+rm -f "$LOCAL_BIN_DIR"/tmux-monitor
 
-# Create symlinks
-$SUDO_CMD ln -s "$SCRIPT_DIR/scripts/tmux-manager.sh" /usr/local/bin/tmux-manager
-echo -e "${GREEN}✅ Installed: /usr/local/bin/tmux-manager${NC}"
+# Create symlinks in ~/.local/bin
+ln -s "$SCRIPT_DIR/scripts/tmux-manager.sh" "$LOCAL_BIN_DIR/tmux-manager"
+echo -e "${GREEN}✅ Installed: $LOCAL_BIN_DIR/tmux-manager${NC}"
 
-$SUDO_CMD ln -s "$SCRIPT_DIR/scripts/tmux-desktop-view.sh" /usr/local/bin/tmux-desktop-view
-echo -e "${GREEN}✅ Installed: /usr/local/bin/tmux-desktop-view${NC}"
+ln -s "$SCRIPT_DIR/scripts/tmux-desktop-view.sh" "$LOCAL_BIN_DIR/tmux-desktop-view"
+echo -e "${GREEN}✅ Installed: $LOCAL_BIN_DIR/tmux-desktop-view${NC}"
 
-$SUDO_CMD ln -s "$SCRIPT_DIR/scripts/tmux-mobile-view.sh" /usr/local/bin/tmux-mobile-view
-echo -e "${GREEN}✅ Installed: /usr/local/bin/tmux-mobile-view${NC}"
+ln -s "$SCRIPT_DIR/scripts/tmux-mobile-view.sh" "$LOCAL_BIN_DIR/tmux-mobile-view"
+echo -e "${GREEN}✅ Installed: $LOCAL_BIN_DIR/tmux-mobile-view${NC}"
 
-$SUDO_CMD ln -s "$SCRIPT_DIR/scripts/tmux-monitor.sh" /usr/local/bin/tmux-monitor
-echo -e "${GREEN}✅ Installed: /usr/local/bin/tmux-monitor${NC}"
+ln -s "$SCRIPT_DIR/scripts/tmux-monitor.sh" "$LOCAL_BIN_DIR/tmux-monitor"
+echo -e "${GREEN}✅ Installed: $LOCAL_BIN_DIR/tmux-monitor${NC}"
 echo ""
 
 echo -e "${GREEN}✅ Installation complete!${NC}"
