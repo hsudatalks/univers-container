@@ -109,15 +109,17 @@ start_base_services() {
     local already_running=()
 
     # 定义服务及其启动脚本（按依赖顺序）
+    # 所有脚本统一管理在 univers-core 目录
+    local CORE_DIR="$CONTAINER_ROOT/.claude/skills/univers-core"
     local services=(
-        "univers-developer:$CONTAINER_ROOT/.claude/skills/univers-core/work/tmux-developer.sh:start"
-        "univers-server:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-server.sh:start socket"
-        "univers-web:$PROJECT_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/tmux-web.sh:start"
-        "univers-operator:$CONTAINER_ROOT/.claude/skills/univers-core/work/tmux-operator.sh:start"
-        "univers-agents:$CONTAINER_ROOT/.claude/skills/univers-core/ops/tmux-agents.sh:start"
-        "univers-check:$CONTAINER_ROOT/.claude/skills/univers-core/dev/tmux-check.sh:idle"
-        "univers-e2e:$CONTAINER_ROOT/.claude/skills/univers-core/dev/tmux-e2e.sh:idle"
-        "univers-bench:$CONTAINER_ROOT/.claude/skills/univers-core/dev/tmux-bench.sh:idle"
+        "univers-developer:$CORE_DIR/work/tmux-developer.sh:start"
+        "univers-server:$CORE_DIR/dev/tmux-server.sh:start socket"
+        "univers-web:$CORE_DIR/dev/tmux-web.sh:start"
+        "univers-operator:$CORE_DIR/work/tmux-operator.sh:start"
+        "univers-agents:$CORE_DIR/ops/tmux-agents.sh:start"
+        "univers-check:$CORE_DIR/dev/tmux-check.sh:idle"
+        "univers-e2e:$CORE_DIR/dev/tmux-e2e.sh:idle"
+        "univers-bench:$CORE_DIR/dev/tmux-bench.sh:idle"
     )
 
     for service_info in "${services[@]}"; do
