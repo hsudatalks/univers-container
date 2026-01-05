@@ -236,13 +236,14 @@ start_session() {
     # 检查依赖会话
     check_dependencies || true
 
-    # 设置基本选项
     # 创建会话（使用 bash）
     tmux new-session -d -s "$SESSION_NAME" -n "dev" -c "$PROJECT_ROOT" bash
 
+    # 设置全局pane-base-index（必须在创建session之后设置）
+    tmux set-option -g pane-base-index 1
+
     tmux set-option -t "$SESSION_NAME" base-index 1
     tmux set-window-option -t "$SESSION_NAME" aggressive-resize on
-    tmux set-window-option -t "$SESSION_NAME" pane-base-index 0
     tmux set-option -t "$SESSION_NAME" remain-on-exit off
     tmux set-option -t "$SESSION_NAME" mouse on
     tmux set-option -t "$SESSION_NAME" history-limit 50000
