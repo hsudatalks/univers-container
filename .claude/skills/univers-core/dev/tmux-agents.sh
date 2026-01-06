@@ -157,6 +157,21 @@ start_server() {
     tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" "cd '$AGENTS_DIR'" C-m
     sleep 0.5
 
+    # 读取 .env 文件中的 SERVER_PORT 并设置 WORKBENCH_URL
+    local env_file="$PROJECT_ROOT/.env"
+    local server_port="3003"  # 默认端口
+    if [ -f "$env_file" ]; then
+        local port_from_env=$(grep -E "^SERVER_PORT=" "$env_file" 2>/dev/null | cut -d'=' -f2 | tr -d ' "'"'"'')
+        if [ -n "$port_from_env" ]; then
+            server_port="$port_from_env"
+            log_info "从 .env 读取 SERVER_PORT=$server_port"
+        fi
+    fi
+    local workbench_url="http://localhost:$server_port"
+    tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" "export WORKBENCH_URL='$workbench_url'" C-m
+    tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" "export LLM_PROXY_URL='$workbench_url/api/v1/intelligence/llm'" C-m
+    log_info "WORKBENCH_URL=$workbench_url"
+
     # 设置环境变量
     if [ -n "$ANTHROPIC_API_KEY" ]; then
         tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" "export ANTHROPIC_API_KEY='$ANTHROPIC_API_KEY'" C-m
