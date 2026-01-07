@@ -172,25 +172,42 @@ start_base_services() {
     echo ""
 }
 
-# 启动单个视图（带存在性检查）
+# 启动单个视图（带存在性检查和强制位置验证）
 start_view_if_needed() {
     local view_name="$1"
     local view_session="$2"
     local view_command="$3"
 
-    # 检查视图会话是否已存在（检查默认服务器和container服务器）
-    if tmux has-session -t "$view_session" 2>/dev/null || tmux -L container has-session -t "$view_session" 2>/dev/null; then
-        log_info "$view_name 会话已存在，跳过启动"
+    # 步骤 1: 检查是否在错误的 server (default) 上存在
+    if tmux has-session -t "$view_session" 2>/dev/null; then
+        log_warning "$view_name 会话在错误的服务器 (default) 上运行！"
+        log_info "正在强制关闭并在正确的服务器 (container) 上重新创建..."
+
+        # 关闭错误的会话
+        if tmux kill-session -t "$view_session" 2>/dev/null; then
+            log_success "已关闭错误位置的 $view_name 会话"
+        else
+            log_error "无法关闭错误位置的 $view_name 会话"
+            return 1
+        fi
+
+        # 等待一下确保会话已关闭
+        sleep 0.5
+    fi
+
+    # 步骤 2: 检查是否在正确的 server (container) 上存在
+    if tmux -L container has-session -t "$view_session" 2>/dev/null; then
+        log_info "$view_name 会话已在正确的服务器 (container) 上运行，跳过启动"
         return 0
     fi
 
-    # 检查命令是否存在
+    # 步骤 3: 检查命令是否存在
     if ! command -v "$view_command" &> /dev/null; then
         log_warning "$view_command 命令未找到，跳过 $view_name"
         return 1
     fi
 
-    # 启动视图
+    # 步骤 4: 启动视图（在正确的 server 上）
     log_info "启动 $view_name..."
     set +e
     $view_command start --skip-deps >/dev/null 2>&1
@@ -200,12 +217,12 @@ start_view_if_needed() {
     # 给视图一点时间启动
     sleep 0.3
 
-    # 验证会话是否真的创建了（检查两种服务器）
-    if tmux has-session -t "$view_session" 2>/dev/null || tmux -L container has-session -t "$view_session" 2>/dev/null; then
-        log_success "$view_name 启动成功"
+    # 步骤 5: 验证会话是否真的在 container server 上创建了
+    if tmux -L container has-session -t "$view_session" 2>/dev/null; then
+        log_success "$view_name 在正确的服务器 (container) 上启动成功"
         return 0
     else
-        log_warning "$view_name 启动失败（会话未创建）"
+        log_warning "$view_name 启动失败（会话未在 container 服务器上创建）"
         return 1
     fi
 }
