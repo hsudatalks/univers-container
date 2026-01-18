@@ -16,13 +16,11 @@ source "$SCRIPT_DIR_SVC_MGR/common.sh"
 source "$SCRIPT_DIR_SVC_MGR/tmux-utils.sh"
 
 # ============================================
-# 服务定义
+# 服务定义（兼容 Bash 3.2）
 # ============================================
 
-# 注册的服务列表
-declare -A UNIVERS_SERVICES
-declare -A UNIVERS_SERVICE_SCRIPTS
-declare -A UNIVERS_SERVICE_SESSIONS
+# 服务数据存储（使用全局变量）
+_UNIVERS_SERVICE_COUNT=0
 
 # 注册服务
 register_service() {
@@ -30,9 +28,13 @@ register_service() {
     local script="$2"
     local session="${3:-univers-$name}"
 
-    UNIVERS_SERVICES["$name"]=1
-    UNIVERS_SERVICE_SCRIPTS["$name"]="$script"
-    UNIVERS_SERVICE_SESSIONS["$name"]="$session"
+    # 使用数组存储服务信息
+    eval "_UNIVERS_SERVICE_${_UNIVERS_SERVICE_COUNT}_NAME=\"$name\""
+    eval "_UNIVERS_SERVICE_${_UNIVERS_SERVICE_COUNT}_SCRIPT=\"$script\""
+    eval "_UNIVERS_SERVICE_${_UNIVERS_SERVICE_COUNT}_SESSION=\"$session\""
+    eval "_UNIVERS_SERVICE_${_UNIVERS_SERVICE_COUNT}_INDEX=$_UNIVERS_SERVICE_COUNT"
+
+    _UNIVERS_SERVICE_COUNT=$((_UNIVERS_SERVICE_COUNT + 1))
 
     log_debug "注册服务: $name -> $script (session: $session)"
 }
@@ -40,26 +42,51 @@ register_service() {
 # 获取服务脚本路径
 get_service_script() {
     local name="$1"
-    echo "${UNIVERS_SERVICE_SCRIPTS[$name]}"
+    local i
+    for i in $(seq 0 $((_UNIVERS_SERVICE_COUNT - 1))); do
+        eval "local svc_name=\"\${_UNIVERS_SERVICE_${i}_NAME}\""
+        if [ "$svc_name" = "$name" ]; then
+            eval "echo \"\${_UNIVERS_SERVICE_${i}_SCRIPT}\""
+            return 0
+        fi
+    done
 }
 
 # 获取服务会话名
 get_service_session() {
     local name="$1"
-    echo "${UNIVERS_SERVICE_SESSIONS[$name]}"
+    local i
+    for i in $(seq 0 $((_UNIVERS_SERVICE_COUNT - 1))); do
+        eval "local svc_name=\"\${_UNIVERS_SERVICE_${i}_NAME}\""
+        if [ "$svc_name" = "$name" ]; then
+            eval "echo \"\${_UNIVERS_SERVICE_${i}_SESSION}\""
+            return 0
+        fi
+    done
 }
 
 # 检查服务是否已注册
 is_service_registered() {
     local name="$1"
-    [ "${UNIVERS_SERVICES[$name]}" = "1" ]
+    local i
+    for i in $(seq 0 $((_UNIVERS_SERVICE_COUNT - 1))); do
+        eval "local svc_name=\"\${_UNIVERS_SERVICE_${i}_NAME}\""
+        if [ "$svc_name" = "$name" ]; then
+            return 0
+        fi
+    done
+    return 1
 }
 
 # 列出所有注册的服务
 list_services() {
-    for name in "${!UNIVERS_SERVICES[@]}"; do
-        echo "$name"
-    done | sort
+    local i
+    local names=""
+    for i in $(seq 0 $((_UNIVERS_SERVICE_COUNT - 1))); do
+        eval "local svc_name=\"\${_UNIVERS_SERVICE_${i}_NAME}\""
+        names="$names $svc_name"
+    done
+    echo "$names" | tr ' ' '\n' | grep -v '^$' | sort
 }
 
 # ============================================

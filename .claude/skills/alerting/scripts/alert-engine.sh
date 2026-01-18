@@ -38,12 +38,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Alert severity levels
-declare -A SEVERITY_LEVELS=(
-    ["info"]=0
-    ["warning"]=1
-    ["error"]=2
-    ["critical"]=3
-)
+# info=0, warning=1, error=2, critical=3
 
 # Initialize alerting system
 init_alerting() {

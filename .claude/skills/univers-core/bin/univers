@@ -28,27 +28,49 @@ source "$CORE_LIB/common.sh"
 CONTAINER_ROOT="$(get_univers_container_root)"
 REPOS_ROOT="$(get_repos_root)"
 
-# 项目映射
-declare -A PROJECT_PATHS=(
-    ["dev"]="$REPOS_ROOT/hvac-workbench"
-    ["workbench"]="$REPOS_ROOT/hvac-workbench"
-    ["ops"]="$REPOS_ROOT/hvac-operation"
-    ["operation"]="$REPOS_ROOT/hvac-operation"
-    ["manage"]="$CONTAINER_ROOT"
-    ["container"]="$CONTAINER_ROOT"
-    ["strategy"]="$REPOS_ROOT/univers-strategy"
-)
+# 获取项目路径的函数（兼容 Bash 3.2）
+get_project_path() {
+    local project="$1"
+    case "$project" in
+        dev|workbench)
+            echo "$REPOS_ROOT/hvac-workbench"
+            ;;
+        ops|operation)
+            echo "$REPOS_ROOT/hvac-operation"
+            ;;
+        manage|container)
+            echo "$CONTAINER_ROOT"
+            ;;
+        strategy)
+            echo "$REPOS_ROOT/univers-strategy"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
 
-# 项目管理脚本映射
-declare -A PROJECT_MANAGERS=(
-    ["dev"]="$REPOS_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/manager.sh"
-    ["workbench"]="$REPOS_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/manager.sh"
-    ["ops"]="$REPOS_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/manager.sh"
-    ["operation"]="$REPOS_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/manager.sh"
-    ["manage"]="$CONTAINER_ROOT/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
-    ["container"]="$CONTAINER_ROOT/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
-    ["work"]="$CORE_DIR/work/manager.sh"
-)
+# 获取项目管理器路径的函数（兼容 Bash 3.2）
+get_project_manager() {
+    local project="$1"
+    case "$project" in
+        dev|workbench)
+            echo "$REPOS_ROOT/hvac-workbench/.claude/skills/univers-dev/scripts/manager.sh"
+            ;;
+        ops|operation)
+            echo "$REPOS_ROOT/hvac-operation/.claude/skills/univers-ops/scripts/manager.sh"
+            ;;
+        manage|container)
+            echo "$CONTAINER_ROOT/.claude/skills/tmux-manage/scripts/tmux-manager.sh"
+            ;;
+        work)
+            echo "$CORE_DIR/work/manager.sh"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
 
 # 显示帮助
 show_help() {
@@ -101,8 +123,8 @@ show_status() {
     echo ""
 
     for project in dev ops manage; do
-        local path="${PROJECT_PATHS[$project]}"
-        local manager="${PROJECT_MANAGERS[$project]}"
+        local path="$(get_project_path "$project")"
+        local manager="$(get_project_manager "$project")"
 
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo -e "${CYAN}项目: $project${NC}"
@@ -128,14 +150,15 @@ route_to_project() {
     shift
 
     # 检查项目是否存在
-    if [ -z "${PROJECT_PATHS[$project]:-}" ]; then
+    local path="$(get_project_path "$project")"
+    if [ -z "$path" ]; then
         log_error "未知项目: $project"
         echo ""
         echo "可用项目: dev, ops, manage"
         exit 1
     fi
 
-    local manager="${PROJECT_MANAGERS[$project]}"
+    local manager="$(get_project_manager "$project")"
 
     # 检查管理器是否存在
     if [ ! -f "$manager" ]; then
